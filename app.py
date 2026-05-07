@@ -113,7 +113,6 @@ matches_data = {
     ],
 
     "Vs New York City FC (25/11/2025)": [
-        # Passes Certos – Pé dominante
         ("PASS WON",10.13,27.70,27.92,1.93,"strong"),
         ("PASS WON",16.95,28.36,16.78,51.64,"strong"),
         ("PASS WON",31.08,36.68,10.79,35.18,"strong"),
@@ -146,14 +145,12 @@ matches_data = {
         ("PASS WON",59.17,30.19,74.96,8.75,"strong"),
         ("PASS WON",76.29,24.54,85.10,3.76,"strong"),
 
-        # Passes Errados – Pé dominante
         ("PASS LOST",41.43,53.55,59.07,48.54,"strong"),
         ("PASS LOST",10.24,29.97,49.79,23.85,"strong"),
         ("PASS LOST",33.08,25.15,65.76,2.13,"strong"),
         ("PASS LOST",57.40,18.65,71.70,0.46,"strong"),
         ("PASS LOST",63.90,24.03,92.30,27.19,"strong"),
 
-        # Passes Certos – Pé fraco
         ("PASS WON",18.61,23.38,3.15,43.16,"weak"),
         ("PASS WON",32.24,22.21,26.75,46.48,"weak"),
         ("PASS WON",46.37,16.06,39.72,44.49,"weak"),
@@ -170,8 +167,6 @@ matches_data = {
 }
 
 # ── Advanced Passes data ─────────────────────────────────────────────────────
-# type: "LBP WON" | "LBP LOST"  = Line Breaking Pass
-#       "BPP WON"                = Ball Progression Pass
 special_data = {
     "Vs Sacramento United (25/04/2026)": [
         ("LBP WON",44.37,19.05,57.84,52.30),("LBP WON",48.53,56.12,71.30,56.29),
@@ -182,10 +177,19 @@ special_data = {
         ("BPP WON",61.99,10.24,79.78, 4.09),("BPP WON",58.84,36.01,77.29,14.07),
         ("BPP WON",39.72,19.39,51.69,28.36),("BPP WON",63.82,36.68,72.97,44.82),
     ],
-    "Vs New York City FC (25/11/2025)": [],
+
+    # Ajustes solicitados:
+    # Passe #5  -> BPP WON
+    # Passe #29 -> LBP WON
+    # Passe #30 -> BPP WON
+    "Vs New York City FC (25/11/2025)": [
+        ("BPP WON",66.82,7.75,55.68,39.83),   # #5
+        ("LBP WON",58.67,26.87,80.78,24.54),  # #29
+        ("BPP WON",59.17,30.19,74.96,8.75),   # #30
+    ],
 }
 
-# ── Helpers ────────────────────────────��────────────────────────────────
+# ── Helpers ─────────────────────────────────────────────────────────────
 def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
     dx   = x_end - x_start
     dy   = y_end - y_start
@@ -261,7 +265,6 @@ sp_full_data: dict = {"All Matches": sp_df_all}
 sp_full_data.update(sp_dfs_by_match)
 
 
-# ── Stats: Pass Map ────────────────────��─────────────────────────────────────
 def _dir_stats(sub: pd.DataFrame):
     n = max(len(sub), 1)
     fwd = int(sub["is_forward"].sum());      bwd = int(sub["is_backward"].sum())
@@ -313,7 +316,6 @@ def compute_stats(df: pd.DataFrame) -> dict:
     }
 
 
-# ── Stats: Advanced Passes ────────────────────────────────────────────────────
 def compute_advanced_stats(sp_df: pd.DataFrame, total_passes: int) -> dict:
     lbp  = sp_df[sp_df["pass_type"] == "line_breaking"]
     bpp  = sp_df[sp_df["pass_type"] == "ball_progression"]
@@ -331,7 +333,6 @@ def compute_advanced_stats(sp_df: pd.DataFrame, total_passes: int) -> dict:
     }
 
 
-# ── Draw helpers ───────────────────────────────────────────────────────────
 def _base_pitch():
     pitch = Pitch(pitch_type="statsbomb", pitch_color="#1a1a2e",
                   line_color="#ffffff", line_alpha=0.95)
@@ -513,13 +514,8 @@ def draw_top_connection_minimaps(df: pd.DataFrame, top_k: int = 3,
     return Image.open(buf), axes, fig
 
 
-# ══════════════════════════════════════════════════════════════════
-# TABS
-# ══════════════════════════════════════════════════════════════════
 tab_passmap, tab_advanced = st.tabs(["📋 Pass Map", "🎯 Advanced Passes"])
 
-
-# ── TAB 1: PASS MAP ───────────────────────────────────────────────────────────
 with tab_passmap:
     st.caption("Click the origin dot on the pass map to inspect an event.")
     col_filters, col_field, col_stats = st.columns([0.9, 2, 1], gap="large")
@@ -728,8 +724,6 @@ with tab_passmap:
                    "Lateral Right = toward upper touchline (y→80)  ·  "
                    "Lateral Left = toward lower touchline (y→0)")
 
-
-# ── TAB 2: ADVANCED PASSES ──────────────────────────────────────────────────��─
 with tab_advanced:
     st.caption("Line Breaking Passes (🟡 yellow) and Ball Progression Passes (🟣 purple).")
     sp_col_f, sp_col_field, sp_col_stats = st.columns([0.9, 2, 1], gap="large")
