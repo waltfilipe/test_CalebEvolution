@@ -17,7 +17,6 @@ st.set_page_config(layout="wide", page_title="Caleb Simmons - Pass Evolution - S
 
 st.markdown("""
 <style>
-/* ── Row labels ─────────────────────────────────────────────────────── */
 .row-label{
   font-size:13px;font-weight:700;color:#c8d6e5;letter-spacing:.3px;
   margin-bottom:4px;margin-top:8px;padding:5px 9px;
@@ -25,14 +24,11 @@ st.markdown("""
 .row-label-blue  {border-left:3px solid #2F80ED;}
 .row-label-green {border-left:3px solid #10b981;}
 .row-label-amber {border-left:3px solid #f59e0b;}
-
-/* ── Section header ──────────────────────────────────────────────────── */
+.row-label-purple{border-left:3px solid #8b5cf6;}
 .sec-hdr{
   font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;
   padding:6px 10px;border-radius:5px;margin:0 0 8px 0;
   background:rgba(255,255,255,.04);}
-
-/* ── Comparison box ──────────────────────────────────────────────────── */
 .cmp-box{
   background:rgba(255,255,255,.04);border-radius:10px;
   padding:10px 12px;margin-bottom:8px;}
@@ -46,8 +42,6 @@ st.markdown("""
 .cc-arrow{font-size:11px;font-weight:700;color:#10b981;margin-left:4px;vertical-align:middle;}
 .cc-sub{font-size:9px;color:#64748b;margin-top:3px;}
 .cmp-sep{width:1px;background:rgba(255,255,255,.10);min-height:40px;flex-shrink:0;margin-top:18px;}
-
-/* ── Misc ────────────────────────────────────────────────────────────── */
 .row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:8px 0 6px 0;}
 .streamlit-expanderHeader{color:#ffffff!important;}
 .filter-panel{
@@ -93,10 +87,10 @@ COLOR_BPP         = "#8B5CF6"
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a","#f97316","#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 
-# Row accent colours (must match row-label CSS classes)
-C_BLUE  = "#2F80ED"
-C_GREEN = "#10b981"
-C_AMBER = "#f59e0b"
+C_BLUE   = "#2F80ED"
+C_GREEN  = "#10b981"
+C_AMBER  = "#f59e0b"
+C_PURPLE = "#8b5cf6"
 
 NYC_COLOR = "#f87171"
 SAC_COLOR = "#60a5fa"
@@ -107,7 +101,7 @@ POSITION_BY_MATCH = {MATCH_SAC: "LCB", MATCH_NYC: "LCB"}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # xT grid
-# ─────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────��──────────────────────────
 def distance_bonus(distance):
     excess = np.maximum(0.0, np.asarray(distance, dtype=float) - D_REF)
     return np.minimum(BONUS_CAP, np.log1p(excess / D_SCALE))
@@ -368,12 +362,13 @@ def compute_advanced_stats(sp_df: pd.DataFrame, total_passes: int) -> dict:
     lbp_t = len(lbp); lbp_c = int(lbp["is_won"].sum()); bpp_t = len(bpp)
     ref   = max(total_passes, 1)
     return {
-        "lbp_total": lbp_t, "lbp_completed": lbp_c,
-        "lbp_incomplete": lbp_t - lbp_c,
-        "lbp_accuracy": round(lbp_c / lbp_t * 100, 1) if lbp_t else 0,
-        "lbp_tendency": round(lbp_t / ref * 100, 1),
-        "bpp_total": bpp_t,
-        "bpp_tendency": round(bpp_t / ref * 100, 1),
+        "lbp_total":     lbp_t,
+        "lbp_completed": lbp_c,
+        "lbp_incomplete":lbp_t - lbp_c,
+        "lbp_accuracy":  round(lbp_c / lbp_t * 100, 1) if lbp_t else 0,
+        "lbp_tendency":  round(lbp_t / ref * 100, 1),
+        "bpp_total":     bpp_t,
+        "bpp_tendency":  round(bpp_t / ref * 100, 1),
     }
 
 def small_metric(label: str, value: str, delta: str | None = None):
@@ -388,7 +383,6 @@ def small_metric(label: str, value: str, delta: str | None = None):
 # UI helpers
 # ─────────────────────────────────────────────────────────────────────────────
 def _arrow_html(val_nyc: float, val_sac: float) -> tuple[str, str]:
-    """Return (nyc_arrow_html, sac_arrow_html). Arrow shown next to the higher value."""
     nyc_a = sac_a = ""
     if val_nyc == val_sac or val_nyc == 0 or val_sac == 0:
         return nyc_a, sac_a
@@ -399,7 +393,6 @@ def _arrow_html(val_nyc: float, val_sac: float) -> tuple[str, str]:
         pct = (val_sac - val_nyc) / abs(val_nyc) * 100
         sac_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
     return nyc_a, sac_a
-
 
 def cmp_box(label: str,
             val_nyc: float, val_sac: float,
@@ -432,28 +425,22 @@ def cmp_box(label: str,
     )
     st.markdown(html, unsafe_allow_html=True)
 
-
 def sec_hdr(label: str, color: str = "#3b82f6"):
-    """Section header whose left-border + text colour matches the map row label."""
     st.markdown(
         f'<div class="sec-hdr" style="border-left:3px solid {color};color:{color};">'
         f'{label}</div>',
         unsafe_allow_html=True)
 
-
 def row_divider():
     st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
-
 
 def row_label(text: str, cls: str = "row-label-blue"):
     st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
 
-
-def spacer(px: int = 18):
+def spacer(px: int = 81):
     st.markdown(f'<div style="height:{px}px;"></div>', unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────────────────────────────��───────────
+# ─────────────────────────────────────────────────────────────────────────────
 # Draw helpers
 # ─────────────────────────────────────────────────────────────────────────────
 def _base_pitch(bg="#1a1a2e"):
@@ -465,7 +452,6 @@ def _base_pitch(bg="#1a1a2e"):
     ax.axvline(x=HALF_LINE_X,        color="#ffffff", lw=0.7, alpha=0.12, linestyle="--")
     return fig, ax, pitch
 
-
 def _attack_arrow(fig, has_cbar=False):
     ox = -0.04 if has_cbar else 0.0
     fig.patches.append(FancyArrowPatch(
@@ -474,7 +460,6 @@ def _attack_arrow(fig, has_cbar=False):
     fig.text(0.50+ox, 0.012, "Attacking Direction", ha="center", va="bottom",
              transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
 
-
 def _save_fig(fig) -> Image.Image:
     fig.canvas.draw()
     buf = BytesIO()
@@ -482,7 +467,6 @@ def _save_fig(fig) -> Image.Image:
                 facecolor=fig.get_facecolor(), bbox_inches="tight")
     buf.seek(0)
     return Image.open(buf)
-
 
 def draw_pass_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
@@ -507,7 +491,6 @@ def draw_pass_map(df: pd.DataFrame):
     leg.get_frame().set_alpha(0.90)
     _attack_arrow(fig)
     return _save_fig(fig), fig
-
 
 def draw_corridor_heatmap(df: pd.DataFrame):
     df_s = df[df["is_won"]].copy()
@@ -547,7 +530,6 @@ def draw_corridor_heatmap(df: pd.DataFrame):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
-
 def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     segs = 12; ts = np.linspace(0.0, 1.0, segs+1)
     for i in range(segs):
@@ -563,7 +545,6 @@ def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white",
                linewidths=0.9, zorder=6, alpha=0.85)
 
-
 def draw_top10_xt_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
     top10 = (
@@ -575,9 +556,8 @@ def draw_top10_xt_map(df: pd.DataFrame):
         for _, row in top10.iterrows():
             val   = float(row["delta_xt_adj"])
             color = CMAP_TOP10(NORM_TOP10(np.clip(val, 0.05, 0.40)))
-            _draw_comet_arrow(ax,
-                              float(row.x_start), float(row.y_start),
-                              float(row.x_end),   float(row.y_end), color)
+            _draw_comet_arrow(ax, float(row.x_start), float(row.y_start),
+                              float(row.x_end), float(row.y_end), color)
     sm   = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
     cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
     cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
@@ -586,8 +566,7 @@ def draw_top10_xt_map(df: pd.DataFrame):
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
-
-def draw_advanced_pass_map(df: pd.DataFrame, title: str):
+def draw_advanced_pass_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         ptype  = row["pass_type"]; is_won = bool(row["is_won"])
@@ -599,7 +578,6 @@ def draw_advanced_pass_map(df: pd.DataFrame, title: str):
                      ax=ax, zorder=3, alpha=alpha)
         pitch.scatter(row.x_start, row.y_start, s=36, marker="o", color=color,
                       edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
-    ax.set_title(title, fontsize=9, color="#ffffff", pad=5)
     leg = ax.legend(handles=[
         Line2D([0],[0], color=COLOR_LBP_WON,  lw=2.0, label="Line Breaking – Completed",  alpha=0.85),
         Line2D([0],[0], color=COLOR_LBP_LOST,  lw=2.0, label="Line Breaking – Incomplete", alpha=0.80),
@@ -610,15 +588,17 @@ def draw_advanced_pass_map(df: pd.DataFrame, title: str):
     for t in leg.get_texts(): t.set_color("white")
     leg.get_frame().set_alpha(0.90)
     _attack_arrow(fig)
-    return _save_fig(fig), ax, fig
-
+    return _save_fig(fig), fig
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pre-render images + compute stats
 # ─────────────────────────────────────────────────────────────────────────────
 df_sac = dfs_by_match[MATCH_SAC].copy()
 df_nyc = dfs_by_match[MATCH_NYC].copy()
+sp_sac = sp_dfs_by_match[MATCH_SAC].copy()
+sp_nyc = sp_dfs_by_match[MATCH_NYC].copy()
 
+# Tab 1
 img_pm_nyc, fig_pm_nyc = draw_pass_map(df_nyc);         plt.close(fig_pm_nyc)
 img_pm_sac, fig_pm_sac = draw_pass_map(df_sac);         plt.close(fig_pm_sac)
 img_ht_nyc, fig_ht_nyc = draw_corridor_heatmap(df_nyc); plt.close(fig_ht_nyc)
@@ -626,31 +606,35 @@ img_ht_sac, fig_ht_sac = draw_corridor_heatmap(df_sac); plt.close(fig_ht_sac)
 img_xt_nyc, fig_xt_nyc = draw_top10_xt_map(df_nyc);     plt.close(fig_xt_nyc)
 img_xt_sac, fig_xt_sac = draw_top10_xt_map(df_sac);     plt.close(fig_xt_sac)
 
-s_sac = compute_stats(df_sac)
-s_nyc = compute_stats(df_nyc)
+# Tab 2
+img_adv_nyc, fig_adv_nyc = draw_advanced_pass_map(sp_nyc); plt.close(fig_adv_nyc)
+img_adv_sac, fig_adv_sac = draw_advanced_pass_map(sp_sac); plt.close(fig_adv_sac)
+img_aht_nyc, fig_aht_nyc = draw_corridor_heatmap(sp_nyc);  plt.close(fig_aht_nyc)
+img_aht_sac, fig_aht_sac = draw_corridor_heatmap(sp_sac);  plt.close(fig_aht_sac)
 
+s_sac  = compute_stats(df_sac)
+s_nyc  = compute_stats(df_nyc)
+ss_sac = compute_advanced_stats(sp_sac, len(df_sac))
+ss_nyc = compute_advanced_stats(sp_nyc, len(df_nyc))
 
-# ═════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════���═══════════════════════════════
 # TABS
 # ═════════════════════════════════════════════════════════════════════════════
 tab_passmap, tab_advanced = st.tabs(["📋 Pass Map", "🎯 Advanced Passes"])
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 1  —  NYC (left) | SAC (centre) | Stats (right)
-# ─────────────────────────────────────────────────��───────────────────────────
+# TAB 1 — Pass Map
+# ─────────────────────────────────────────────────────────────────────────────
 with tab_passmap:
     col_nyc, col_sac, col_stats = st.columns([1, 1, 1], gap="medium")
 
-    # ════════ ROW 1: Pass Maps ════════════════════════════════════════════════
+    # ════ ROW 1: Pass Maps ════
     with col_nyc:
         row_label("🟦 Pass Map · New York City FC · 25/11/2025", "row-label-blue")
         st.image(img_pm_nyc, use_container_width=True)
-
     with col_sac:
         row_label("🟦 Pass Map · Sacramento United · 25/04/2026", "row-label-blue")
         st.image(img_pm_sac, use_container_width=True)
-
     with col_stats:
         sec_hdr("📋 Pass Overview", C_BLUE)
         cmp_box("Total Passes",
@@ -670,23 +654,19 @@ with tab_passmap:
                 sub_nyc=f"{s_nyc['prog_completed']} completed",
                 sub_sac=f"{s_sac['prog_completed']} completed",
                 border=C_BLUE)
-        # spacer fills remaining vertical space to align with map bottom
         spacer(81)
 
-    # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
     with col_sac:   row_divider()
     with col_stats: row_divider()
 
-    # ════════ ROW 2: Zone Heatmaps ════════════════════════════════════════════
+    # ════ ROW 2: Zone Heatmaps ════
     with col_nyc:
         row_label("🟩 Zone Heatmap · New York City FC", "row-label-green")
         st.image(img_ht_nyc, use_container_width=True)
-
     with col_sac:
         row_label("🟩 Zone Heatmap · Sacramento United", "row-label-green")
         st.image(img_ht_sac, use_container_width=True)
-
     with col_stats:
         sec_hdr("🧭 Pass Direction", C_GREEN)
         cmp_box("⬆️ Forward",
@@ -706,20 +686,17 @@ with tab_passmap:
                 border=C_GREEN)
         spacer(81)
 
-    # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
     with col_sac:   row_divider()
     with col_stats: row_divider()
 
-    # ════════ ROW 3: Top-10 xT Maps ══════════════════════════════════════════
+    # ════ ROW 3: Top-10 xT Maps ════
     with col_nyc:
         row_label("🟡 Top 10 ΔxT · New York City FC", "row-label-amber")
         st.image(img_xt_nyc, use_container_width=True)
-
     with col_sac:
         row_label("🟡 Top 10 ΔxT · Sacramento United", "row-label-amber")
         st.image(img_xt_sac, use_container_width=True)
-
     with col_stats:
         sec_hdr("⚡ xT Analysis", C_AMBER)
         cmp_box("% Positive ΔxT",
@@ -751,99 +728,65 @@ with tab_passmap:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 2 — Advanced Passes (unchanged)
+# TAB 2 — Advanced Passes  (NYC | SAC | Stats)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_advanced:
-    st.caption("Line Breaking Passes (🟡 yellow) and Ball Progression Passes (🟣 purple).")
-    sp_col_f, sp_col_field, sp_col_stats = st.columns([0.9, 2, 1], gap="large")
+    col_anyc, col_asac, col_astats = st.columns([1, 1, 1], gap="medium")
 
-    with sp_col_f:
-        st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
-        st.markdown("### 📍 Position")
-        sp_pos = st.radio("Filter by position", ["All Positions","LCB","RCB"],
-                          index=0, key="sp_pos")
-        st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:-6px;margin-bottom:4px;'>"
-                    "LCB: Sacramento (25/04/2026), NYC (25/11/2025)</div>",
-                    unsafe_allow_html=True)
-        st.markdown('<hr class="filter-divider">', unsafe_allow_html=True)
+    # ════ ROW 1: Advanced Pass Maps ════
+    with col_anyc:
+        row_label("🟡 Advanced Passes · New York City FC · 25/11/2025", "row-label-amber")
+        st.image(img_adv_nyc, use_container_width=True)
+    with col_asac:
+        row_label("🟡 Advanced Passes · Sacramento United · 25/04/2026", "row-label-amber")
+        st.image(img_adv_sac, use_container_width=True)
+    with col_astats:
+        sec_hdr("🟡 Line Breaking Passes", C_AMBER)
+        cmp_box("LBP Total",
+                float(ss_nyc["lbp_total"]), float(ss_sac["lbp_total"]),
+                border=C_AMBER)
+        cmp_box("LBP Completed",
+                float(ss_nyc["lbp_completed"]), float(ss_sac["lbp_completed"]),
+                disp_nyc=f"{ss_nyc['lbp_completed']} ({ss_nyc['lbp_accuracy']:.0f}%)",
+                disp_sac=f"{ss_sac['lbp_completed']} ({ss_sac['lbp_accuracy']:.0f}%)",
+                sub_nyc=f"{ss_nyc['lbp_incomplete']} incomplete",
+                sub_sac=f"{ss_sac['lbp_incomplete']} incomplete",
+                border=C_AMBER)
+        cmp_box("LBP Tendency",
+                ss_nyc["lbp_tendency"], ss_sac["lbp_tendency"],
+                disp_nyc=f"{ss_nyc['lbp_tendency']:.1f}%",
+                disp_sac=f"{ss_sac['lbp_tendency']:.1f}%",
+                sub_nyc=f"of total passes",
+                sub_sac=f"of total passes",
+                border=C_AMBER)
+        spacer(81)
 
-        if sp_pos == "All Positions": sp_avail = list(sp_dfs_by_match.keys())
-        else: sp_avail = [m for m,p in POSITION_BY_MATCH.items() if p==sp_pos]
+    with col_anyc:   row_divider()
+    with col_asac:   row_divider()
+    with col_astats: row_divider()
 
-        sp_pos_all = (pd.concat([sp_dfs_by_match[m] for m in sp_avail], ignore_index=True)
-                      if sp_avail else sp_df_all.iloc[0:0])
-        pm_pos_all = (pd.concat([dfs_by_match[m]    for m in sp_avail], ignore_index=True)
-                      if sp_avail else df_all.iloc[0:0])
+    # ════ ROW 2: Zone Heatmaps (Advanced) ════
+    with col_anyc:
+        row_label("🟩 Zone Heatmap · Advanced · New York City FC", "row-label-green")
+        st.image(img_aht_nyc, use_container_width=True)
+    with col_asac:
+        row_label("🟩 Zone Heatmap · Advanced · Sacramento United", "row-label-green")
+        st.image(img_aht_sac, use_container_width=True)
+    with col_astats:
+        sec_hdr("🟣 Ball Progression Passes", C_PURPLE)
+        cmp_box("BPP Total",
+                float(ss_nyc["bpp_total"]), float(ss_sac["bpp_total"]),
+                border=C_PURPLE)
+        cmp_box("BPP Tendency",
+                ss_nyc["bpp_tendency"], ss_sac["bpp_tendency"],
+                disp_nyc=f"{ss_nyc['bpp_tendency']:.1f}%",
+                disp_sac=f"{ss_sac['bpp_tendency']:.1f}%",
+                sub_nyc="of total passes",
+                sub_sac="of total passes",
+                border=C_PURPLE)
+        spacer(81)
 
-        sp_pos_full: dict = {"All Matches": sp_pos_all}
-        sp_pos_full.update({m: sp_dfs_by_match[m] for m in sp_avail})
-        pm_pos_full: dict = {"All Matches": pm_pos_all}
-        pm_pos_full.update({m: dfs_by_match[m] for m in sp_avail})
-
-        st.markdown("### 🏟️ Match")
-        sp_match = st.selectbox("Choose the match", list(sp_pos_full.keys()),
-                                index=0, key="sp_match")
-        st.markdown('<hr class="filter-divider">', unsafe_allow_html=True)
-        st.markdown("### 🎯 Pass Type")
-        sp_filter = st.radio("Show passes",
-                             ["All","Line Breaking Only","Ball Progression Only"],
-                             index=0, key="sp_filter")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with sp_col_field:
-        sp_df_base = sp_pos_full[sp_match].copy()
-        if sp_filter == "Line Breaking Only":
-            sp_df_base = sp_df_base[sp_df_base["pass_type"]=="line_breaking"].reset_index(drop=True)
-        elif sp_filter == "Ball Progression Only":
-            sp_df_base = sp_df_base[sp_df_base["pass_type"]=="ball_progression"].reset_index(drop=True)
-        else:
-            sp_df_base = sp_df_base.reset_index(drop=True)
-
-        st.markdown('<h4 style="color:#ffffff;margin:0 0 6px 0;">Advanced Passes Map</h4>',
-                    unsafe_allow_html=True)
-        sp_img, sp_ax, sp_fig = draw_advanced_pass_map(
-            sp_df_base, title=f"Advanced Passes — {sp_match}")
-        st.image(sp_img, use_container_width=True)
-        plt.close(sp_fig)
-
-        st.markdown('<h4 style="color:#ffffff;margin:14px 0 4px 0;">Zone Heatmap — Completed</h4>',
-                    unsafe_allow_html=True)
-        sp_heat_img, sp_hfig = draw_corridor_heatmap(sp_df_base)
-        st.image(sp_heat_img, use_container_width=True)
-        plt.close(sp_hfig)
-
-        with st.expander("📊 Full Data Table"):
-            dc2 = ["number","type","pass_type","outcome",
-                   "x_start","y_start","x_end","y_end","pass_distance"]
-            st.dataframe(sp_df_base[dc2].style.format(
-                {"x_start":"{:.2f}","y_start":"{:.2f}","x_end":"{:.2f}",
-                 "y_end":"{:.2f}","pass_distance":"{:.1f}"}),
-                use_container_width=True, height=320)
-
-    with sp_col_stats:
-        total_pm = len(pm_pos_full[sp_match])
-        ss = compute_advanced_stats(sp_df_base, total_pm)
-
-        with st.expander("🟡 Line Breaking Passes", expanded=True):
-            st.markdown('<div class="stats-section-title">Line Breaking Passes</div>',
-                        unsafe_allow_html=True)
-            b1, b2, b3 = st.columns(3)
-            with b1: small_metric("Total",      f"{ss['lbp_total']}")
-            with b2: small_metric("Completed",  f"{ss['lbp_completed']}")
-            with b3: small_metric("Incomplete", f"{ss['lbp_incomplete']}")
-            st.markdown("<hr style='margin:6px 0 8px 0;'>", unsafe_allow_html=True)
-            ba1, ba2 = st.columns(2)
-            with ba1: small_metric("Accuracy", f"{ss['lbp_accuracy']:.1f}%")
-            with ba2: small_metric("Tendency", f"{ss['lbp_tendency']:.1f}%",
-                                   delta=f"{ss['lbp_total']} of {total_pm} passes")
-
-        with st.expander("🟣 Ball Progression Passes", expanded=True):
-            st.markdown('<div class="stats-section-title">Ball Progression Passes</div>',
-                        unsafe_allow_html=True)
-            p1, p2 = st.columns(2)
-            with p1: small_metric("Total",    f"{ss['bpp_total']}")
-            with p2: small_metric("Tendency", f"{ss['bpp_tendency']:.1f}%",
-                                  delta=f"{ss['bpp_total']} of {total_pm} passes")
-
-        st.divider()
-        st.caption("🟡 Yellow = Line Breaking  ·  🟣 Purple = Ball Progression  ·  🔴 Red = Incomplete")
+    st.caption(
+        "🟡 Yellow = Line Breaking Completed  ·  🔴 Red = Line Breaking Incomplete  ·  "
+        "🟣 Purple = Ball Progression Pass"
+    )
