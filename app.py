@@ -35,12 +35,29 @@ st.markdown("""
 .filter-panel .filter-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:14px 0;}
 .stSubheader{color:#ffffff!important;}
 .match-title{
-  font-size:15px;font-weight:700;color:#c8d6e5;
-  letter-spacing:.4px;margin-bottom:6px;margin-top:14px;
-  padding:6px 10px;
+  font-size:13px;font-weight:700;color:#c8d6e5;
+  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
+  padding:5px 9px;
   background:rgba(255,255,255,.04);
   border-left:3px solid #2F80ED;
   border-radius:4px;}
+.match-title-purple{
+  font-size:13px;font-weight:700;color:#c8d6e5;
+  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
+  padding:5px 9px;
+  background:rgba(255,255,255,.04);
+  border-left:3px solid #8B5CF6;
+  border-radius:4px;}
+.match-title-green{
+  font-size:13px;font-weight:700;color:#c8d6e5;
+  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
+  padding:5px 9px;
+  background:rgba(255,255,255,.04);
+  border-left:3px solid #10b981;
+  border-radius:4px;}
+.section-divider{
+  border:none;border-top:1px solid rgba(255,255,255,0.07);
+  margin:10px 0 6px 0;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,7 +70,7 @@ def small_metric(label: str, value: str, delta: str | None = None):
     st.markdown(html, unsafe_allow_html=True)
 
 
-st.title("Caleb Simmons - Pass Evolution - Season 25/26")
+st.title("Caleb Simmons — Pass Evolution — Season 25/26")
 
 # ── Constants ────────────────────────────────────────────────────────────
 FIELD_X, FIELD_Y   = 120.0, 80.0
@@ -72,9 +89,11 @@ COLOR_LBP_WON  = "#F59E0B"
 COLOR_LBP_LOST = "#E07070"
 COLOR_BPP      = "#8B5CF6"
 
-# ── Reduced figure sizes ──────────────────────────────────────────────────
-FIG_W, FIG_H = 5.8, 3.9
-FIG_DPI      = 110
+# ── Figure settings ─────────���─────────────────────────────────────────────
+# High DPI + moderate physical size → crisp render, small on screen
+FIG_W, FIG_H = 7.0, 4.7      # inches
+FIG_DPI      = 180            # high-res render
+IMG_W        = 500            # display width in pixels (controls on-screen size)
 
 CMAP_DENSITY = LinearSegmentedColormap.from_list(
     "density",
@@ -193,9 +212,9 @@ special_data = {
         ("BPP WON",39.72,19.39,51.69,28.36),("BPP WON",63.82,36.68,72.97,44.82),
     ],
     MATCH_NYC: [
-        ("BPP WON",66.82,7.75,55.68,39.83),   # #5
-        ("LBP WON",58.67,26.87,80.78,24.54),  # #29
-        ("BPP WON",59.17,30.19,74.96,8.75),   # #30
+        ("BPP WON",66.82,7.75,55.68,39.83),
+        ("LBP WON",58.67,26.87,80.78,24.54),
+        ("BPP WON",59.17,30.19,74.96,8.75),
     ],
 }
 
@@ -224,15 +243,15 @@ def progressive_pass(x_start: float, x_end: float) -> bool:
 
 
 def _save_fig(fig) -> Image.Image:
-    fig.tight_layout()
     fig.canvas.draw()
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=FIG_DPI, facecolor=fig.get_facecolor())
+    fig.savefig(buf, format="png", dpi=FIG_DPI,
+                facecolor=fig.get_facecolor(), bbox_inches="tight")
     buf.seek(0)
     return Image.open(buf)
 
 
-# ── Build Pass Map DataFrames ─────────────────────────────────────────────────
+# ── Build DataFrames ──────────────────────────────────────────────────────────
 dfs_by_match: dict = {}
 for match_name, events in matches_data.items():
     dfm = pd.DataFrame(events, columns=["type","x_start","y_start","x_end","y_end","foot"])
@@ -254,7 +273,6 @@ for match_name, events in matches_data.items():
 
 df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
 
-# ── Build Advanced Passes DataFrames ──────────────────────────────────────────
 sp_dfs_by_match: dict = {}
 for match_name, events in special_data.items():
     dfm = pd.DataFrame(events, columns=["type","x_start","y_start","x_end","y_end"])
@@ -345,77 +363,74 @@ def _base_pitch(bg="#1a1a2e"):
     pitch = Pitch(pitch_type="statsbomb", pitch_color=bg,
                   line_color="#ffffff", line_alpha=0.95)
     fig, ax = pitch.draw(figsize=(FIG_W, FIG_H))
-    fig.set_facecolor(bg); fig.set_dpi(FIG_DPI)
-    # ── final third: white dashed ──────────────────────────────────────────
-    ax.axvline(x=FINAL_THIRD_LINE_X, color="#ffffff", lw=1.0, alpha=0.35, linestyle="--")
-    ax.axvline(x=HALF_LINE_X,        color="#ffffff", lw=0.6, alpha=0.10, linestyle="--")
+    fig.set_facecolor(bg)
+    fig.set_dpi(FIG_DPI)
+    # final third: white dashed
+    ax.axvline(x=FINAL_THIRD_LINE_X, color="#ffffff", lw=1.2, alpha=0.40, linestyle="--")
+    ax.axvline(x=HALF_LINE_X,        color="#ffffff", lw=0.7, alpha=0.12, linestyle="--")
     return fig, ax, pitch
 
 
 def _attack_arrow(fig):
     fig.patches.append(FancyArrowPatch(
-        (0.45,0.05),(0.55,0.05), transform=fig.transFigure,
-        arrowstyle="-|>", mutation_scale=13, linewidth=1.8, color="#cccccc"))
-    fig.text(0.5,0.02,"Attacking Direction",ha="center",va="center",
-             fontsize=8,color="#cccccc")
+        (0.44, 0.045), (0.56, 0.045), transform=fig.transFigure,
+        arrowstyle="-|>", mutation_scale=11, linewidth=1.6, color="#aaaaaa"))
+    fig.text(0.50, 0.012, "Attacking Direction", ha="center", va="bottom",
+             transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
 
 
-def draw_pass_map(df: pd.DataFrame, title: str):
+def draw_pass_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         is_won = bool(row["is_won"]); is_prog = bool(row["is_progressive"])
-        if not is_won:   color, alpha = COLOR_FAIL,         0.70
-        elif is_prog:    color, alpha = COLOR_PROGRESSIVE,  0.86
+        if not is_won:   color, alpha = COLOR_FAIL,         0.72
+        elif is_prog:    color, alpha = COLOR_PROGRESSIVE,  0.88
         else:            color, alpha = COLOR_SUCCESS,       ALPHA_SUCCESS
-        pitch.arrows(row.x_start,row.y_start,row.x_end,row.y_end,
-                     color=color,width=1.40,headwidth=2.10,headlength=2.10,
-                     ax=ax,zorder=3,alpha=alpha)
-        pitch.scatter(row.x_start,row.y_start,s=38,marker="o",color=color,
-                      edgecolors="white",linewidths=0.7,ax=ax,zorder=6,alpha=alpha)
-    if title:
-        ax.set_title(title, fontsize=10, color="#ffffff", pad=6)
+        pitch.arrows(row.x_start, row.y_start, row.x_end, row.y_end,
+                     color=color, width=1.3, headwidth=2.0, headlength=2.0,
+                     ax=ax, zorder=3, alpha=alpha)
+        pitch.scatter(row.x_start, row.y_start, s=32, marker="o", color=color,
+                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
     leg = ax.legend(handles=[
-        Line2D([0],[0],color=COLOR_SUCCESS,    lw=2.2,label="Completed",  alpha=0.65),
-        Line2D([0],[0],color=COLOR_PROGRESSIVE,lw=2.2,label="Progressive",alpha=0.90),
-        Line2D([0],[0],color=COLOR_FAIL,       lw=2.2,label="Incomplete", alpha=0.90),
-    ], loc="upper left", bbox_to_anchor=(0.01,0.99), frameon=True,
-       facecolor="#1a1a2e", edgecolor="#444466", fontsize=7,
-       labelspacing=0.4, borderpad=0.4)
+        Line2D([0],[0], color=COLOR_SUCCESS,     lw=2.0, label="Completed",   alpha=0.65),
+        Line2D([0],[0], color=COLOR_PROGRESSIVE, lw=2.0, label="Progressive", alpha=0.90),
+        Line2D([0],[0], color=COLOR_FAIL,        lw=2.0, label="Incomplete",  alpha=0.90),
+    ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
+       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5,
+       labelspacing=0.35, borderpad=0.4)
     for t in leg.get_texts(): t.set_color("white")
-    leg.get_frame().set_alpha(0.92)
+    leg.get_frame().set_alpha(0.90)
     _attack_arrow(fig)
-    return _save_fig(fig), ax, fig
+    return _save_fig(fig), fig
 
 
 def draw_advanced_pass_map(df: pd.DataFrame, title: str):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
-        ptype  = row["pass_type"]
-        is_won = bool(row["is_won"])
+        ptype  = row["pass_type"]; is_won = bool(row["is_won"])
         if ptype == "ball_progression":  color, alpha = COLOR_BPP,      0.82
         elif is_won:                     color, alpha = COLOR_LBP_WON,  0.82
         else:                            color, alpha = COLOR_LBP_LOST, 0.68
-        pitch.arrows(row.x_start,row.y_start,row.x_end,row.y_end,
-                     color=color,width=1.50,headwidth=2.20,headlength=2.20,
-                     ax=ax,zorder=3,alpha=alpha)
-        pitch.scatter(row.x_start,row.y_start,s=42,marker="o",color=color,
-                      edgecolors="white",linewidths=0.7,ax=ax,zorder=6,alpha=alpha)
-    if title:
-        ax.set_title(title, fontsize=10, color="#ffffff", pad=6)
+        pitch.arrows(row.x_start, row.y_start, row.x_end, row.y_end,
+                     color=color, width=1.4, headwidth=2.1, headlength=2.1,
+                     ax=ax, zorder=3, alpha=alpha)
+        pitch.scatter(row.x_start, row.y_start, s=36, marker="o", color=color,
+                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
+    ax.set_title(title, fontsize=9, color="#ffffff", pad=5)
     leg = ax.legend(handles=[
-        Line2D([0],[0],color=COLOR_LBP_WON, lw=2.2,label="Line Breaking – Completed",  alpha=0.85),
-        Line2D([0],[0],color=COLOR_LBP_LOST,lw=2.2,label="Line Breaking – Incomplete", alpha=0.80),
-        Line2D([0],[0],color=COLOR_BPP,     lw=2.2,label="Ball Progression Pass",       alpha=0.85),
-    ], loc="upper left", bbox_to_anchor=(0.01,0.99), frameon=True,
-       facecolor="#1a1a2e", edgecolor="#444466", fontsize=7,
-       labelspacing=0.4, borderpad=0.4)
+        Line2D([0],[0], color=COLOR_LBP_WON,  lw=2.0, label="Line Breaking – Completed",  alpha=0.85),
+        Line2D([0],[0], color=COLOR_LBP_LOST,  lw=2.0, label="Line Breaking – Incomplete", alpha=0.80),
+        Line2D([0],[0], color=COLOR_BPP,       lw=2.0, label="Ball Progression Pass",      alpha=0.85),
+    ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
+       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5,
+       labelspacing=0.35, borderpad=0.4)
     for t in leg.get_texts(): t.set_color("white")
-    leg.get_frame().set_alpha(0.92)
+    leg.get_frame().set_alpha(0.90)
     _attack_arrow(fig)
     return _save_fig(fig), ax, fig
 
 
-def draw_corridor_heatmap(df: pd.DataFrame, title: str = ""):
+def draw_corridor_heatmap(df: pd.DataFrame):
     df_s   = df[df["is_won"]].copy()
     x_bins = np.linspace(0.0, FIELD_X, 7)
     corridors = {
@@ -424,40 +439,37 @@ def draw_corridor_heatmap(df: pd.DataFrame, title: str = ""):
         "right":  (0.0,            LANE_RIGHT_MAX),
     }
     counts: dict = {}
-    for cname,(y0,y1) in corridors.items():
+    for cname, (y0, y1) in corridors.items():
         arr = np.zeros(6, dtype=int)
         for i in range(6):
-            x0_,x1_ = x_bins[i],x_bins[i+1]
-            mask = ((df_s["x_end"]>=x0_)&(df_s["x_end"]<x1_)
-                    &(df_s["y_end"]>=y0)&(df_s["y_end"]<y1))
-            arr[i] = int(mask.sum())
+            x0_, x1_ = x_bins[i], x_bins[i+1]
+            arr[i] = int(((df_s["x_end"]>=x0_)&(df_s["x_end"]<x1_)
+                          &(df_s["y_end"]>=y0)&(df_s["y_end"]<y1)).sum())
         counts[cname] = arr
     all_vals  = np.concatenate([counts[c] for c in counts])
     vmax      = max(1, int(all_vals.max()))
     cmap      = LinearSegmentedColormap.from_list(
-        "wr",["#ffffff","#ffecec","#ffbfbf","#ff8080","#ff3b3b","#ff0000"])
+        "wr", ["#ffffff","#ffecec","#ffbfbf","#ff8080","#ff3b3b","#ff0000"])
     norm      = Normalize(vmin=0, vmax=vmax)
-    threshold = max(1, vmax*0.35)
+    threshold = max(1, vmax * 0.35)
     fig, ax, pitch = _base_pitch()
-    for cname,(y0,y1) in corridors.items():
+    for cname, (y0, y1) in corridors.items():
         for i in range(6):
-            x0_,x1_ = x_bins[i],x_bins[i+1]
-            value    = counts[cname][i]
-            ax.add_patch(Rectangle((x0_,y0),x1_-x0_,y1-y0,
+            x0_, x1_ = x_bins[i], x_bins[i+1]
+            value = counts[cname][i]
+            ax.add_patch(Rectangle((x0_,y0), x1_-x0_, y1-y0,
                                    facecolor=cmap(norm(value)),
-                                   edgecolor=(1,1,1,0.12),lw=0.6,alpha=0.95,zorder=2))
-            ax.text((x0_+x1_)/2,(y0+y1)/2,str(value),ha="center",va="center",
+                                   edgecolor=(1,1,1,0.12), lw=0.5, alpha=0.95, zorder=2))
+            ax.text((x0_+x1_)/2, (y0+y1)/2, str(value), ha="center", va="center",
                     color="#000000" if value<=threshold else "#ffffff",
-                    fontsize=10,fontweight="700" if value>=vmax*0.5 else "600",zorder=4)
-    if title:
-        ax.set_title(title, fontsize=10, color="#ffffff", pad=6)
-    ax.axhline(y=LANE_LEFT_MIN, color="#ffffff",lw=0.5,alpha=0.15,linestyle="--",zorder=3)
-    ax.axhline(y=LANE_RIGHT_MAX,color="#ffffff",lw=0.5,alpha=0.15,linestyle="--",zorder=3)
+                    fontsize=9, fontweight="700" if value>=vmax*0.5 else "600", zorder=4)
+    ax.axhline(y=LANE_LEFT_MIN,  color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
+    ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
     _attack_arrow(fig)
-    return _save_fig(fig), ax, fig
+    return _save_fig(fig), fig
 
 
-def draw_density_heatmap(df: pd.DataFrame, title: str = ""):
+def draw_density_heatmap(df: pd.DataFrame):
     NX_D, NY_D = 30, 20
     x_edges = np.linspace(0, FIELD_X, NX_D + 1)
     y_edges = np.linspace(0, FIELD_Y, NY_D + 1)
@@ -468,42 +480,38 @@ def draw_density_heatmap(df: pd.DataFrame, title: str = ""):
     fig, ax, pitch = _base_pitch(bg="#0f172a")
     vmax = max(1.0, counts_h.max())
     norm = Normalize(vmin=0, vmax=vmax)
-    margin = 0.22
+    margin = 0.20
     for iy in range(NY_D):
         for ix in range(NX_D):
             val    = counts_h[iy, ix]
             face_c = CMAP_DENSITY(norm(val)) if val >= 0.04 else "#0f172a"
-            x0_ = x_edges[ix]   + margin
-            x1_ = x_edges[ix+1] - margin
-            y0_ = y_edges[iy]   + margin
-            y1_ = y_edges[iy+1] - margin
             ax.add_patch(Rectangle(
-                (x0_, y0_), x1_-x0_, y1_-y0_,
-                facecolor=face_c, edgecolor="white", lw=0.3, alpha=0.88, zorder=2))
+                (x_edges[ix]+margin, y_edges[iy]+margin),
+                (x_edges[ix+1]-x_edges[ix]) - 2*margin,
+                (y_edges[iy+1]-y_edges[iy]) - 2*margin,
+                facecolor=face_c, edgecolor="white", lw=0.25, alpha=0.90, zorder=2))
     sm   = plt.cm.ScalarMappable(cmap=CMAP_DENSITY, norm=norm)
-    cbar = fig.colorbar(sm, ax=ax, fraction=0.018, pad=0.02, shrink=0.65)
-    cbar.set_label("Density", color="#a0b4c8", fontsize=7, labelpad=2)
-    cbar.ax.yaxis.set_tick_params(color="#a0b4c8", labelsize=6)
-    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#a0b4c8")
-    if title:
-        ax.set_title(title, fontsize=10, color="#ffffff", pad=6)
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.016, pad=0.02, shrink=0.62)
+    cbar.set_label("Density", color="#94a3b8", fontsize=7, labelpad=2)
+    cbar.ax.yaxis.set_tick_params(color="#94a3b8", labelsize=6)
+    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#94a3b8")
     _attack_arrow(fig)
-    return _save_fig(fig), ax, fig
+    return _save_fig(fig), fig
 
 
 def _top_zone_transitions(df_s: pd.DataFrame, top_k: int = 3):
-    x_bins = np.linspace(0.0,FIELD_X,7)
-    y_bins = np.array([0.0,LANE_RIGHT_MAX,LANE_LEFT_MIN,FIELD_Y])
+    x_bins = np.linspace(0.0, FIELD_X, 7)
+    y_bins = np.array([0.0, LANE_RIGHT_MAX, LANE_LEFT_MIN, FIELD_Y])
     if df_s.empty: return [], x_bins, y_bins
-    sx = np.clip(np.searchsorted(x_bins,df_s["x_start"].to_numpy(),side="right")-1,0,5)
-    sy = np.clip(np.searchsorted(y_bins,df_s["y_start"].to_numpy(),side="right")-1,0,2)
-    ex = np.clip(np.searchsorted(x_bins,df_s["x_end"].to_numpy(),  side="right")-1,0,5)
-    ey = np.clip(np.searchsorted(y_bins,df_s["y_end"].to_numpy(),  side="right")-1,0,2)
+    sx = np.clip(np.searchsorted(x_bins, df_s["x_start"].to_numpy(), side="right")-1, 0, 5)
+    sy = np.clip(np.searchsorted(y_bins, df_s["y_start"].to_numpy(), side="right")-1, 0, 2)
+    ex = np.clip(np.searchsorted(x_bins, df_s["x_end"].to_numpy(),   side="right")-1, 0, 5)
+    ey = np.clip(np.searchsorted(y_bins, df_s["y_end"].to_numpy(),   side="right")-1, 0, 2)
     transitions: dict = defaultdict(int)
-    for a,b,c,d in zip(sx,sy,ex,ey):
+    for a, b, c, d in zip(sx, sy, ex, ey):
         if int(a)==int(c) and int(b)==int(d): continue
         transitions[(int(a),int(b),int(c),int(d))] += 1
-    return sorted(transitions.items(),key=lambda kv:kv[1],reverse=True)[:top_k], x_bins, y_bins
+    return sorted(transitions.items(), key=lambda kv: kv[1], reverse=True)[:top_k], x_bins, y_bins
 
 
 def draw_top_connection_minimaps(df: pd.DataFrame, top_k: int = 3,
@@ -512,48 +520,63 @@ def draw_top_connection_minimaps(df: pd.DataFrame, top_k: int = 3,
     links, x_bins, y_bins = _top_zone_transitions(df_s, top_k=top_k)
     x_cent = (x_bins[:-1]+x_bins[1:])/2.0
     y_cent = (y_bins[:-1]+y_bins[1:])/2.0
-    max_cnt = max([v for _,v in links],default=1) if links else 1
-    fig, axes = plt.subplots(1,top_k,figsize=(FIG_W*1.55,FIG_H*0.76),dpi=FIG_DPI)
+    max_cnt = max([v for _,v in links], default=1) if links else 1
+    fig, axes = plt.subplots(1, top_k, figsize=(FIG_W*1.5, FIG_H*0.72), dpi=FIG_DPI)
     if top_k == 1: axes = [axes]
     fig.set_facecolor("#1a1a2e")
-    pitch = Pitch(pitch_type="statsbomb",pitch_color="#1a1a2e",
-                  line_color="#ffffff",line_alpha=0.90)
+    pitch = Pitch(pitch_type="statsbomb", pitch_color="#1a1a2e",
+                  line_color="#ffffff", line_alpha=0.90)
     for idx, ax in enumerate(axes):
         pitch.draw(ax=ax)
-        ax.axhline(y=LANE_LEFT_MIN, color="#ffffff",lw=0.4,alpha=0.12,linestyle="--")
-        ax.axhline(y=LANE_RIGHT_MAX,color="#ffffff",lw=0.4,alpha=0.12,linestyle="--")
+        ax.axhline(y=LANE_LEFT_MIN,  color="#ffffff", lw=0.4, alpha=0.12, linestyle="--")
+        ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.4, alpha=0.12, linestyle="--")
         if idx >= len(links):
-            ax.set_title("—",fontsize=8,color="#dbeafe",pad=3); continue
-        (ix0,iy0,ix1,iy1),cnt = links[idx]
-        x0,y0 = float(x_cent[ix0]),float(y_cent[iy0])
-        x1,y1 = float(x_cent[ix1]),float(y_cent[iy1])
-        rel   = cnt/max_cnt; color = plt.cm.Blues(0.40+0.55*rel)
+            ax.set_title("—", fontsize=8, color="#dbeafe", pad=3); continue
+        (ix0,iy0,ix1,iy1), cnt = links[idx]
+        x0, y0 = float(x_cent[ix0]), float(y_cent[iy0])
+        x1, y1 = float(x_cent[ix1]), float(y_cent[iy1])
+        rel = cnt / max_cnt; color = plt.cm.Blues(0.40+0.55*rel)
         ax.add_patch(Rectangle(
-            (x_bins[ix0],y_bins[iy0]),x_bins[ix0+1]-x_bins[ix0],y_bins[iy0+1]-y_bins[iy0],
-            facecolor=(0.20,0.45,0.95,0.18),edgecolor=(1,1,1,0.18),lw=0.6,zorder=2))
+            (x_bins[ix0],y_bins[iy0]), x_bins[ix0+1]-x_bins[ix0], y_bins[iy0+1]-y_bins[iy0],
+            facecolor=(0.20,0.45,0.95,0.18), edgecolor=(1,1,1,0.18), lw=0.6, zorder=2))
         ax.add_patch(Rectangle(
-            (x_bins[ix1],y_bins[iy1]),x_bins[ix1+1]-x_bins[ix1],y_bins[iy1+1]-y_bins[iy1],
-            facecolor=(0.02,0.70,0.55,0.18),edgecolor=(1,1,1,0.18),lw=0.6,zorder=2))
+            (x_bins[ix1],y_bins[iy1]), x_bins[ix1+1]-x_bins[ix1], y_bins[iy1+1]-y_bins[iy1],
+            facecolor=(0.02,0.70,0.55,0.18), edgecolor=(1,1,1,0.18), lw=0.6, zorder=2))
         if ix0==ix1 and iy0==iy1:
-            ax.scatter([x0],[y0],s=40+80*rel,c=[color],marker="o",
-                       edgecolors="white",linewidths=0.5,alpha=0.35+0.60*rel,zorder=5)
+            ax.scatter([x0],[y0], s=40+80*rel, c=[color], marker="o",
+                       edgecolors="white", linewidths=0.5, alpha=0.35+0.60*rel, zorder=5)
         else:
-            rad = float(np.clip(0.10*np.sign((ix1-ix0)+0.4*(iy1-iy0)),-0.30,0.30))
+            rad = float(np.clip(0.10*np.sign((ix1-ix0)+0.4*(iy1-iy0)), -0.30, 0.30))
             ax.add_patch(FancyArrowPatch(
-                (x0,y0),(x1,y1),connectionstyle=f"arc3,rad={rad}",
-                arrowstyle="-|>",mutation_scale=9+8*rel,
-                lw=1.0+3.8*rel,color=color,alpha=0.35+0.60*rel,zorder=4))
-        ax.text((x0+x1)/2,(y0+y1)/2,f"{cnt}",color="#e5efff",fontsize=8,
-                ha="center",va="center",zorder=7,
-                bbox=dict(boxstyle="round,pad=0.15",fc=(0.06,0.09,0.14,0.80),ec="none"))
-        ax.set_title(f"#{idx+1}  ·  {cnt}×",fontsize=8,color="#dbeafe",pad=3)
-    fig.suptitle(title,fontsize=10,color="#ffffff",y=0.99)
+                (x0,y0),(x1,y1), connectionstyle=f"arc3,rad={rad}",
+                arrowstyle="-|>", mutation_scale=9+8*rel,
+                lw=1.0+3.5*rel, color=color, alpha=0.35+0.60*rel, zorder=4))
+        ax.text((x0+x1)/2, (y0+y1)/2, f"{cnt}", color="#e5efff", fontsize=8,
+                ha="center", va="center", zorder=7,
+                bbox=dict(boxstyle="round,pad=0.14", fc=(0.06,0.09,0.14,0.80), ec="none"))
+        ax.set_title(f"#{idx+1}  ·  {cnt}×", fontsize=8, color="#dbeafe", pad=3)
+    fig.suptitle(title, fontsize=9, color="#ffffff", y=0.99)
     fig.tight_layout(rect=[0,0,1,0.94])
     fig.canvas.draw()
     buf = BytesIO()
-    fig.savefig(buf,format="png",dpi=FIG_DPI,facecolor=fig.get_facecolor(),bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=FIG_DPI,
+                facecolor=fig.get_facecolor(), bbox_inches="tight")
     buf.seek(0)
     return Image.open(buf), axes, fig
+
+
+# ══════════════════════════════════════════════════════════════════
+# PRE-RENDER all 6 images (avoid redundant renders)
+# ══════════════════════════════════════════════════════════════════
+df_sac = dfs_by_match[MATCH_SAC].copy()
+df_nyc = dfs_by_match[MATCH_NYC].copy()
+
+img_pm_sac,  fig_pm_sac  = draw_pass_map(df_sac);  plt.close(fig_pm_sac)
+img_pm_nyc,  fig_pm_nyc  = draw_pass_map(df_nyc);  plt.close(fig_pm_nyc)
+img_ht_sac,  fig_ht_sac  = draw_corridor_heatmap(df_sac); plt.close(fig_ht_sac)
+img_ht_nyc,  fig_ht_nyc  = draw_corridor_heatmap(df_nyc); plt.close(fig_ht_nyc)
+img_dn_sac,  fig_dn_sac  = draw_density_heatmap(df_sac);  plt.close(fig_dn_sac)
+img_dn_nyc,  fig_dn_nyc  = draw_density_heatmap(df_nyc);  plt.close(fig_dn_nyc)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -562,66 +585,60 @@ def draw_top_connection_minimaps(df: pd.DataFrame, top_k: int = 3,
 tab_passmap, tab_advanced = st.tabs(["📋 Pass Map", "🎯 Advanced Passes"])
 
 
-# ── TAB 1: PASS MAP — comparação lado a lado ──────────────────────────────────
+# ── TAB 1: PASS MAP ───────────────────────────────────────────────────────────
 with tab_passmap:
-    st.caption("Grey = Completed  ·  🔵 Blue = Progressive  ·  🔴 Red = Incomplete  ·  White dashed = Final Third")
+    st.caption(
+        "Grey = Completed  ·  🔵 Blue = Progressive  ·  🔴 Red = Incomplete  "
+        "·  White dashed = Final Third"
+    )
 
-    col_maps, col_heats = st.columns(2, gap="large")
+    col_sac, col_nyc = st.columns(2, gap="medium")
 
-    df_sac = dfs_by_match[MATCH_SAC].copy()
-    df_nyc = dfs_by_match[MATCH_NYC].copy()
-
-    # ── Coluna esquerda: Pass Maps ────────────────────────────────────────────
-    with col_maps:
-
-        # Sacramento Pass Map
-        st.markdown(f'<div class="match-title">Pass Map — Vs Sacramento United (25/04/2026)</div>',
+    # ── Row labels ─────────────────────────────────────���──────────────────────
+    with col_sac:
+        st.markdown('<div class="match-title">🟦 Pass Map — Sacramento United · 25/04/2026</div>',
                     unsafe_allow_html=True)
-        img_sac, _, fig_sac = draw_pass_map(df_sac, title="")
-        st.image(img_sac, use_container_width=True)
-        plt.close(fig_sac)
-
-        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-
-        # NYC Pass Map
-        st.markdown(f'<div class="match-title">Pass Map — Vs New York City FC (25/11/2025)</div>',
+    with col_nyc:
+        st.markdown('<div class="match-title">🟦 Pass Map — New York City FC · 25/11/2025</div>',
                     unsafe_allow_html=True)
-        img_nyc, _, fig_nyc = draw_pass_map(df_nyc, title="")
-        st.image(img_nyc, use_container_width=True)
-        plt.close(fig_nyc)
 
-    # ── Coluna direita: Heatmaps + Density maps ───────────────────────────────
-    with col_heats:
+    # ── Row 1: Pass Maps ──────────────────────────────────────────────────────
+    with col_sac:
+        st.image(img_pm_sac, width=IMG_W)
+    with col_nyc:
+        st.image(img_pm_nyc, width=IMG_W)
 
-        # Sacramento Heatmap
-        st.markdown(f'<div class="match-title">Heatmap — Vs Sacramento United (25/04/2026)</div>',
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+    # ── Row 2 labels ──────────────────────────────────────────────────────────
+    with col_sac:
+        st.markdown('<div class="match-title-green">🟩 Zone Heatmap — Sacramento United · 25/04/2026</div>',
                     unsafe_allow_html=True)
-        heat_sac, _, hfig_sac = draw_corridor_heatmap(df_sac)
-        st.image(heat_sac, use_container_width=True)
-        plt.close(hfig_sac)
-
-        # Sacramento Density
-        st.markdown(f'<div class="match-title" style="border-left-color:#8B5CF6;">Pass Density — Vs Sacramento United (25/04/2026)</div>',
+    with col_nyc:
+        st.markdown('<div class="match-title-green">🟩 Zone Heatmap — New York City FC · 25/11/2025</div>',
                     unsafe_allow_html=True)
-        dens_sac, _, dfig_sac = draw_density_heatmap(df_sac)
-        st.image(dens_sac, use_container_width=True)
-        plt.close(dfig_sac)
 
-        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+    # ── Row 2: Heatmaps ───────────────────────────────────────────────────────
+    with col_sac:
+        st.image(img_ht_sac, width=IMG_W)
+    with col_nyc:
+        st.image(img_ht_nyc, width=IMG_W)
 
-        # NYC Heatmap
-        st.markdown(f'<div class="match-title">Heatmap — Vs New York City FC (25/11/2025)</div>',
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+    # ── Row 3 labels ──────────────────────────────────────────────────────────
+    with col_sac:
+        st.markdown('<div class="match-title-purple">🟣 Pass Density — Sacramento United · 25/04/2026</div>',
                     unsafe_allow_html=True)
-        heat_nyc, _, hfig_nyc = draw_corridor_heatmap(df_nyc)
-        st.image(heat_nyc, use_container_width=True)
-        plt.close(hfig_nyc)
-
-        # NYC Density
-        st.markdown(f'<div class="match-title" style="border-left-color:#8B5CF6;">Pass Density — Vs New York City FC (25/11/2025)</div>',
+    with col_nyc:
+        st.markdown('<div class="match-title-purple">🟣 Pass Density — New York City FC · 25/11/2025</div>',
                     unsafe_allow_html=True)
-        dens_nyc, _, dfig_nyc = draw_density_heatmap(df_nyc)
-        st.image(dens_nyc, use_container_width=True)
-        plt.close(dfig_nyc)
+
+    # ── Row 3: Density Maps ───────────────────────────────────────────────────
+    with col_sac:
+        st.image(img_dn_sac, width=IMG_W)
+    with col_nyc:
+        st.image(img_dn_nyc, width=IMG_W)
 
 
 # ── TAB 2: ADVANCED PASSES ────────────────────────────────────────────────────
@@ -632,8 +649,8 @@ with tab_advanced:
     with sp_col_f:
         st.markdown('<div class="filter-panel">', unsafe_allow_html=True)
         st.markdown("### 📍 Position")
-        sp_pos = st.radio("Filter by position",["All Positions","LCB","RCB"],
-                          index=0,key="sp_pos")
+        sp_pos = st.radio("Filter by position", ["All Positions","LCB","RCB"],
+                          index=0, key="sp_pos")
         st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:-6px;margin-bottom:4px;'>"
                     "LCB: Sacramento United (25/04/2026), New York City FC (25/11/2025)</div>",
                     unsafe_allow_html=True)
@@ -642,9 +659,9 @@ with tab_advanced:
         if sp_pos == "All Positions": sp_avail = list(sp_dfs_by_match.keys())
         else: sp_avail = [m for m,p in POSITION_BY_MATCH.items() if p==sp_pos]
 
-        sp_pos_all = (pd.concat([sp_dfs_by_match[m] for m in sp_avail],ignore_index=True)
+        sp_pos_all = (pd.concat([sp_dfs_by_match[m] for m in sp_avail], ignore_index=True)
                       if sp_avail else sp_df_all.iloc[0:0])
-        pm_pos_all = (pd.concat([dfs_by_match[m] for m in sp_avail],ignore_index=True)
+        pm_pos_all = (pd.concat([dfs_by_match[m]    for m in sp_avail], ignore_index=True)
                       if sp_avail else df_all.iloc[0:0])
 
         sp_pos_full: dict = {"All Matches": sp_pos_all}
@@ -653,13 +670,13 @@ with tab_advanced:
         pm_pos_full.update({m: dfs_by_match[m] for m in sp_avail})
 
         st.markdown("### 🏟️ Match")
-        sp_match = st.selectbox("Choose the match",list(sp_pos_full.keys()),
-                                index=0,key="sp_match")
+        sp_match = st.selectbox("Choose the match", list(sp_pos_full.keys()),
+                                index=0, key="sp_match")
         st.markdown('<hr class="filter-divider">', unsafe_allow_html=True)
         st.markdown("### 🎯 Pass Type")
         sp_filter = st.radio("Show passes",
                              ["All","Line Breaking Only","Ball Progression Only"],
-                             index=0,key="sp_filter")
+                             index=0, key="sp_filter")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with sp_col_field:
@@ -671,20 +688,18 @@ with tab_advanced:
         else:
             sp_df_base = sp_df_base.reset_index(drop=True)
 
-        SP_DW = 740
-
         st.markdown('<h4 style="color:#ffffff;margin:0 0 6px 0;">Advanced Passes Map</h4>',
                     unsafe_allow_html=True)
-        sp_img,sp_ax,sp_fig = draw_advanced_pass_map(
+        sp_img, sp_ax, sp_fig = draw_advanced_pass_map(
             sp_df_base, title=f"Advanced Passes — {sp_match}")
-        sp_click = streamlit_image_coordinates(sp_img,width=SP_DW,key="sp_map")
+        sp_click = streamlit_image_coordinates(sp_img, width=680, key="sp_map")
 
         sp_selected = None
         if sp_click is not None:
-            rw,rh = sp_img.size
+            rw, rh = sp_img.size
             px = sp_click["x"]*(rw/sp_click["width"])
             py = sp_click["y"]*(rh/sp_click["height"])
-            fx,fy = sp_ax.transData.inverted().transform((px,rh-py))
+            fx, fy = sp_ax.transData.inverted().transform((px, rh-py))
             df_sel2 = sp_df_base.copy()
             df_sel2["_dist"] = np.sqrt((df_sel2.x_start-fx)**2+(df_sel2.y_start-fy)**2)
             cands2 = df_sel2[df_sel2["_dist"]<5.0].sort_values("_dist")
@@ -693,11 +708,11 @@ with tab_advanced:
 
         st.markdown('<h4 style="color:#ffffff;margin:14px 0 4px 0;">Zone Heatmap — Completed</h4>',
                     unsafe_allow_html=True)
-        sp_heat_img,_,sp_hfig = draw_corridor_heatmap(
-            sp_df_base,title="Zone Heatmap — Advanced Passes Completed")
-        st.image(sp_heat_img,use_container_width=True); plt.close(sp_hfig)
+        sp_heat_img, sp_hfig = draw_corridor_heatmap(sp_df_base)
+        st.image(sp_heat_img, use_container_width=True); plt.close(sp_hfig)
 
-        st.divider(); st.subheader("Selected Event")
+        st.divider()
+        st.subheader("Selected Event")
         if sp_selected is None:
             st.info("Click an origin dot on the map to inspect an event.")
         else:
@@ -706,10 +721,10 @@ with tab_advanced:
                            else "Ball Progression Pass")
             status = "✅ Completed" if sp_selected["is_won"] else "❌ Incomplete"
             st.success(f"Pass #{int(sp_selected['number'])} — {ptype_label} | {status}")
-            c1,c2 = st.columns(2)
+            c1, c2 = st.columns(2)
             c1.write(f"**Origin:** ({sp_selected.x_start:.2f}, {sp_selected.y_start:.2f})")
             c2.write(f"**Destination:** ({sp_selected.x_end:.2f}, {sp_selected.y_end:.2f})")
-            st.metric("Pass Distance",f"{sp_selected.pass_distance:.1f} m")
+            st.metric("Pass Distance", f"{sp_selected.pass_distance:.1f} m")
 
         with st.expander("📊 Full Data Table"):
             dc2 = ["number","type","pass_type","outcome",
@@ -717,7 +732,7 @@ with tab_advanced:
             st.dataframe(sp_df_base[dc2].style.format(
                 {"x_start":"{:.2f}","y_start":"{:.2f}","x_end":"{:.2f}",
                  "y_end":"{:.2f}","pass_distance":"{:.1f}"}),
-                use_container_width=True,height=320)
+                use_container_width=True, height=320)
 
     with sp_col_stats:
         total_pm = len(pm_pos_full[sp_match])
@@ -726,12 +741,12 @@ with tab_advanced:
         with st.expander("🟡 Line Breaking Passes", expanded=True):
             st.markdown('<div class="stats-section-title">Line Breaking Passes</div>',
                         unsafe_allow_html=True)
-            b1,b2,b3 = st.columns(3)
+            b1, b2, b3 = st.columns(3)
             with b1: small_metric("Total",      f"{ss['lbp_total']}")
             with b2: small_metric("Completed",  f"{ss['lbp_completed']}")
             with b3: small_metric("Incomplete", f"{ss['lbp_incomplete']}")
-            st.markdown("<hr style='margin:6px 0 8px 0;'>",unsafe_allow_html=True)
-            ba1,ba2 = st.columns(2)
+            st.markdown("<hr style='margin:6px 0 8px 0;'>", unsafe_allow_html=True)
+            ba1, ba2 = st.columns(2)
             with ba1: small_metric("Accuracy", f"{ss['lbp_accuracy']:.1f}%")
             with ba2: small_metric("Tendency", f"{ss['lbp_tendency']:.1f}%",
                                    delta=f"{ss['lbp_total']} of {total_pm} total passes")
@@ -739,7 +754,7 @@ with tab_advanced:
         with st.expander("🟣 Ball Progression Passes", expanded=True):
             st.markdown('<div class="stats-section-title">Ball Progression Passes</div>',
                         unsafe_allow_html=True)
-            p1,p2 = st.columns(2)
+            p1, p2 = st.columns(2)
             with p1: small_metric("Total",    f"{ss['bpp_total']}")
             with p2: small_metric("Tendency", f"{ss['bpp_tendency']:.1f}%",
                                   delta=f"{ss['bpp_total']} of {total_pm} total passes")
