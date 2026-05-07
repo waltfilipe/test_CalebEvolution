@@ -671,7 +671,7 @@ with tab_passmap:
                 sub_sac=f"{s_sac['prog_completed']} completed",
                 border=C_BLUE)
         # spacer fills remaining vertical space to align with map bottom
-        spacer(50)
+        spacer(65)
 
     # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
@@ -704,7 +704,7 @@ with tab_passmap:
                 disp_nyc=f"{s_nyc['lat']} ({s_nyc['lat_pct']:.0f}%)",
                 disp_sac=f"{s_sac['lat']} ({s_sac['lat_pct']:.0f}%)",
                 border=C_GREEN)
-        spacer(50)
+        spacer(65)
 
     # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
