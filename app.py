@@ -9,76 +9,70 @@ from PIL import Image
 from io import BytesIO
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Rectangle
-from streamlit_image_coordinates import streamlit_image_coordinates
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from collections import defaultdict
 from scipy.ndimage import gaussian_filter
+import math
 
 st.set_page_config(layout="wide", page_title="Caleb Simmons - Pass Evolution - Season 25/26")
 
 st.markdown("""
 <style>
-.small-metric{padding:6px 8px;}
-.small-metric .label{font-size:12px;color:#ffffff;margin-bottom:3px;opacity:.95;}
-.small-metric .value{font-size:18px;font-weight:600;color:#ffffff;}
-.small-metric .delta{font-size:11px;color:#e6e6e6;margin-top:4px;}
-.stats-section-title{font-size:14px;font-weight:600;margin-bottom:6px;color:#ffffff;}
+.row-label{
+  font-size:12px;font-weight:700;color:#c8d6e5;letter-spacing:.3px;
+  margin-bottom:4px;margin-top:8px;padding:4px 8px;
+  background:rgba(255,255,255,.04);border-radius:4px;}
+.row-label-blue {border-left:3px solid #2F80ED;}
+.row-label-green{border-left:3px solid #10b981;}
+.row-label-amber{border-left:3px solid #f59e0b;}
+.section-header{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  color:#94a3b8;margin:10px 0 6px 0;padding-bottom:4px;
+  border-bottom:1px solid rgba(255,255,255,.07);}
+.cmp-box{
+  background:rgba(255,255,255,.04);border-radius:10px;
+  padding:9px 11px;margin-bottom:7px;}
+.cmp-box .cb-label{font-size:9px;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.6px;font-weight:600;margin-bottom:6px;}
+.cmp-row{display:flex;justify-content:space-between;align-items:flex-end;gap:4px;}
+.cmp-cell{flex:1;}
+.cmp-cell .cc-tag{font-size:8px;font-weight:700;margin-bottom:1px;}
+.cmp-cell .cc-val{font-size:18px;font-weight:700;color:#f1f5f9;line-height:1.1;}
+.cmp-cell .cc-sub{font-size:9px;color:#64748b;margin-top:2px;}
+.cmp-sep{width:1px;background:rgba(255,255,255,.08);height:32px;flex-shrink:0;}
+.row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:10px 0 6px 0;}
 .streamlit-expanderHeader{color:#ffffff!important;}
-.streamlit-expander{background:rgba(255,255,255,.02);}
 .filter-panel{
   background:linear-gradient(168deg,rgba(30,39,56,.92) 0%,rgba(22,28,40,.97) 100%);
   border:1px solid rgba(255,255,255,.08);border-radius:14px;
-  padding:24px 18px 20px 18px;
-  box-shadow:0 4px 24px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.12);
-  backdrop-filter:blur(6px);}
-.filter-panel h3{font-size:15px;color:#c8d6e5;letter-spacing:.5px;margin-bottom:8px;}
-.filter-panel .filter-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:14px 0;}
-.stSubheader{color:#ffffff!important;}
-.match-title{
-  font-size:13px;font-weight:700;color:#c8d6e5;
-  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
-  padding:5px 9px;
-  background:rgba(255,255,255,.04);
-  border-left:3px solid #2F80ED;
-  border-radius:4px;}
-.match-title-purple{
-  font-size:13px;font-weight:700;color:#c8d6e5;
-  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
-  padding:5px 9px;
-  background:rgba(255,255,255,.04);
-  border-left:3px solid #8B5CF6;
-  border-radius:4px;}
-.match-title-green{
-  font-size:13px;font-weight:700;color:#c8d6e5;
-  letter-spacing:.3px;margin-bottom:4px;margin-top:10px;
-  padding:5px 9px;
-  background:rgba(255,255,255,.04);
-  border-left:3px solid #10b981;
-  border-radius:4px;}
-.section-divider{
-  border:none;border-top:1px solid rgba(255,255,255,0.07);
-  margin:10px 0 6px 0;}
+  padding:20px 14px 16px 14px;
+  box-shadow:0 4px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px);}
+.filter-panel h3{font-size:14px;color:#c8d6e5;letter-spacing:.5px;margin-bottom:8px;}
+.filter-panel .filter-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:12px 0;}
+.small-metric{padding:5px 6px;}
+.small-metric .label{font-size:11px;color:#ffffff;margin-bottom:2px;opacity:.9;}
+.small-metric .value{font-size:17px;font-weight:600;color:#ffffff;}
+.small-metric .delta{font-size:10px;color:#e6e6e6;margin-top:3px;}
+.stats-section-title{font-size:13px;font-weight:600;margin-bottom:6px;color:#ffffff;}
 </style>
 """, unsafe_allow_html=True)
 
-
-def small_metric(label: str, value: str, delta: str | None = None):
-    html = f'<div class="small-metric"><div class="label">{label}</div><div class="value">{value}</div>'
-    if delta is not None:
-        html += f'<div class="delta">{delta}</div>'
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-
-
 st.title("Caleb Simmons — Pass Evolution — Season 25/26")
 
-# ── Constants ────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────────────────────────────────────
 FIELD_X, FIELD_Y   = 120.0, 80.0
 HALF_LINE_X        = FIELD_X / 2
 FINAL_THIRD_LINE_X = 80.0
 LANE_LEFT_MIN      = 53.33
 LANE_RIGHT_MAX     = 26.67
 LATERAL_MIN_DIST   = 12.0
+NX_XT, NY_XT       = 16, 12
+D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
+
+FIG_W, FIG_H = 7.0, 4.7
+FIG_DPI      = 180
 
 COLOR_SUCCESS     = "#c8c8c8"
 COLOR_PROGRESSIVE = "#2F80ED"
@@ -89,27 +83,92 @@ COLOR_LBP_WON  = "#F59E0B"
 COLOR_LBP_LOST = "#E07070"
 COLOR_BPP      = "#8B5CF6"
 
-# ── Figure settings ─────────���─────────────────────────────────────────────
-# High DPI + moderate physical size → crisp render, small on screen
-FIG_W, FIG_H = 7.0, 4.7      # inches
-FIG_DPI      = 180            # high-res render
-IMG_W        = 500            # display width in pixels (controls on-screen size)
+CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a", "#f97316", "#b91c1c"])
+NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 
 CMAP_DENSITY = LinearSegmentedColormap.from_list(
     "density",
-    ["#0f172a", "#1e1b4b", "#312e81", "#1d4ed8", "#0ea5e9",
-     "#2dd4bf", "#ca8a04", "#f97316", "#fcd34d", "#fef08a"]
+    ["#0f172a","#1e1b4b","#312e81","#1d4ed8","#0ea5e9",
+     "#2dd4bf","#ca8a04","#f97316","#fcd34d","#fef08a"]
 )
 
 MATCH_SAC = "Vs Sacramento United (25/04/2026)"
 MATCH_NYC = "Vs New York City FC (25/11/2025)"
+POSITION_BY_MATCH = {MATCH_SAC: "LCB", MATCH_NYC: "LCB"}
 
-POSITION_BY_MATCH: dict[str, str] = {
-    MATCH_SAC: "LCB",
-    MATCH_NYC: "LCB",
-}
+# ─────────────────────────────────────────────────────────────────────────────
+# xT grid  (ported from SAA_Test1)
+# ─────────────────────────────────────────────────────────────────────────────
+def distance_bonus(distance):
+    excess = np.maximum(0.0, np.asarray(distance, dtype=float) - D_REF)
+    return np.minimum(BONUS_CAP, np.log1p(excess / D_SCALE))
 
-# ── Pass Map data ─────────────────────────────────────────────────────────
+@st.cache_data(show_spinner=False)
+def compute_xt_grid(NX=16, NY=12, sub=24,
+    goal_width=11.0, penalty_depth=18.5, penalty_width=45.32,
+    prox_w=0.50, central_w=0.50,
+    internal_prox_power=2.8, internal_central_power=2.4, center_boost=0.20,
+    FUNNEL_INFLUENCE_RANGE=35.0, FUNNEL_POWER=1.3, BASE_BOOST_WEIGHT=0.15,
+    band_width_m=180.0, blur_window_m=60.0, final_blur_m=12.0,
+    ANGLE_WEIGHT=0.50, ANGLE_POWER=1.4, BASE_ANGLE_WEIGHT=0.40):
+
+    ncols_hr = NX*sub; nrows_hr = NY*sub
+    xe = np.linspace(0,FIELD_X,ncols_hr+1); ye = np.linspace(0,FIELD_Y,nrows_hr+1)
+    xc = (xe[:-1]+xe[1:])/2; yc_arr = (ye[:-1]+ye[1:])/2
+    Xc, Yc = np.meshgrid(xc, yc_arr)
+    xp = 0.01+(Xc/FIELD_X)*0.99; yc = 1.0-np.abs((Yc/FIELD_Y)-0.5)*2.0
+    BASE = xp*(0.8+0.2*yc); BASE=(BASE-BASE.min())/(BASE.max()-BASE.min()+1e-12)
+    cy = FIELD_Y/2.0
+    fv = [(FIELD_X,cy-goal_width/2),(FIELD_X-penalty_depth,cy-penalty_width/2),
+          (FIELD_X-penalty_depth,cy+penalty_width/2),(FIELD_X,cy+goal_width/2)]
+    bpts = []
+    for i in range(len(fv)):
+        a,b=fv[i],fv[(i+1)%len(fv)]; dx,dy=b[0]-a[0],b[1]-a[1]
+        n=max(2,int(round(math.hypot(dx,dy)/0.5)))
+        for t in np.linspace(0,1,n,endpoint=False): bpts.append((a[0]+dx*t,a[1]+dy*t))
+    bpts = np.array(bpts)
+    fX=Xc.ravel(); fY=Yc.ravel(); md2=np.full(fX.size,np.inf)
+    for bp in bpts: np.minimum(md2,(fX-bp[0])**2+(fY-bp[1])**2,out=md2)
+    adist=np.sqrt(md2).reshape(Xc.shape)
+    infl=np.clip((1-np.clip(adist/FUNNEL_INFLUENCE_RANGE,0,1))**FUNNEL_POWER,0,1)
+    D=np.hypot(FIELD_X-Xc,cy-Yc)
+    prox=1-np.clip(D/np.hypot(FIELD_X,FIELD_Y/2),0,1)
+    cent=1-np.clip(np.abs((Yc-cy)/cy),0,1)
+    ub=np.clip((prox_w*np.clip(prox**internal_prox_power,0,1)+
+                central_w*np.clip(cent**internal_central_power,0,1))*(1+center_boost*prox),0,1)
+    v1x=FIELD_X-Xc; v1y=(cy+goal_width/2)-Yc; v2x=FIELD_X-Xc; v2y=(cy-goal_width/2)-Yc
+    ca=np.clip((v1x*v2x+v1y*v2y)/(np.hypot(v1x,v1y)*np.hypot(v2x,v2y)+1e-12),-1,1)
+    ang=np.arccos(ca); af=np.clip((ang/(ang.max()+1e-12))**ANGLE_POWER,0,1)
+    ub=np.clip(ub*((1-ANGLE_WEIGHT)+ANGLE_WEIGHT*af),0,1)
+    Bc=BASE*((1-BASE_ANGLE_WEIGHT)+BASE_ANGLE_WEIGHT*af)
+    Bc=(Bc-Bc.min())/(Bc.max()-Bc.min()+1e-12); XTB=Bc+infl*BASE_BOOST_WEIGHT*ub
+    pw=FIELD_X/ncols_hr; ph=FIELD_Y/nrows_hr
+    rx=max(1,int(round((blur_window_m/pw)/2))); ry=max(1,int(round((blur_window_m/ph)/2)))
+    def blur(a,rx,ry):
+        H,W=a.shape; p=np.pad(a,((ry,ry),(rx,rx)),mode='edge').astype(np.float64)
+        ii=p.cumsum(0).cumsum(1); s=ii[2*ry:2*ry+H,2*rx:2*rx+W].copy()
+        s+=ii[:H,:W]; s-=ii[:H,2*rx:2*rx+W]; s-=ii[2*ry:2*ry+H,:W]
+        return s/((2*ry+1)*(2*rx+1))
+    w=0.5*(1-np.cos(np.pi*np.clip(adist/band_width_m,0,1)))
+    XTbl=w*XTB+(1-w)*blur(XTB,rx,ry)
+    rf=max(1,int(round((final_blur_m/pw)/2))); rfy=max(1,int(round((final_blur_m/ph)/2)))
+    XT=0.85*XTbl+0.15*blur(XTbl,rf,rfy); XT=(XT-XT.min())/(XT.max()-XT.min()+1e-12)
+    XTc=np.zeros((NY,NX))
+    for iy in range(NY):
+        for ix in range(NX): XTc[iy,ix]=XT[iy*sub:(iy+1)*sub,ix*sub:(ix+1)*sub].mean()
+    XTc=(XTc-XTc.min())/(XTc.max()-XTc.min()+1e-12)
+    return XTc, XT
+
+XT_GRID, _ = compute_xt_grid()
+
+def xt_value(x, y):
+    ix = int(np.clip((x/FIELD_X)*NX_XT, 0, NX_XT-1))
+    iy = int(np.clip((y/FIELD_Y)*NY_XT, 0, NY_XT-1))
+    return float(XT_GRID[iy, ix])
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pass data
+# ─────────────────────────────────────────────────────────────────────────────
 matches_data = {
     MATCH_SAC: [
         ("PASS WON",  6.14,26.04,15.28,25.70,"strong"),("PASS WON",28.08,22.05,28.42,58.78,"strong"),
@@ -149,58 +208,34 @@ matches_data = {
         ("PASS LOST",50.52,22.05,70.31,16.23,"weak"),
     ],
     MATCH_NYC: [
-        ("PASS WON",10.13,27.70,27.92,1.93,"strong"),
-        ("PASS WON",16.95,28.36,16.78,51.64,"strong"),
-        ("PASS WON",31.08,36.68,10.79,35.18,"strong"),
-        ("PASS WON",53.52,12.57,66.82,17.72,"strong"),
-        ("PASS WON",66.82,7.75,55.68,39.83,"strong"),
-        ("PASS WON",74.79,44.99,82.94,7.42,"strong"),
-        ("PASS WON",78.45,8.75,63.16,26.87,"strong"),
-        ("PASS WON",67.15,21.22,74.30,21.55,"strong"),
-        ("PASS WON",69.64,11.24,55.51,36.68,"strong"),
-        ("PASS WON",62.16,53.63,64.49,34.18,"strong"),
-        ("PASS WON",28.58,39.17,28.75,52.80,"strong"),
-        ("PASS WON",31.24,22.05,10.79,36.01,"strong"),
-        ("PASS WON",36.73,15.56,42.71,0.77,"strong"),
-        ("PASS WON",27.09,23.54,37.39,3.10,"strong"),
-        ("PASS WON",31.57,12.41,22.93,39.50,"strong"),
-        ("PASS WON",27.75,18.06,12.12,39.50,"strong"),
-        ("PASS WON",35.56,4.09,14.12,31.02,"strong"),
-        ("PASS WON",10.30,25.37,25.59,2.93,"strong"),
-        ("PASS WON",11.13,28.36,28.75,5.26,"strong"),
-        ("PASS WON",13.95,28.36,25.09,4.43,"strong"),
-        ("PASS WON",36.23,12.74,11.96,29.19,"strong"),
-        ("PASS WON",40.72,22.71,13.79,36.68,"strong"),
-        ("PASS WON",32.41,26.54,43.88,26.37,"strong"),
-        ("PASS WON",27.75,40.50,27.58,54.46,"strong"),
-        ("PASS WON",34.40,46.82,48.20,62.94,"strong"),
-        ("PASS WON",53.35,53.46,53.52,62.77,"strong"),
-        ("PASS WON",49.19,10.58,40.88,40.33,"strong"),
-        ("PASS WON",60.00,7.25,54.51,38.01,"strong"),
-        ("PASS WON",58.67,26.87,80.78,24.54,"strong"),
-        ("PASS WON",59.17,30.19,74.96,8.75,"strong"),
+        ("PASS WON",10.13,27.70,27.92,1.93,"strong"),("PASS WON",16.95,28.36,16.78,51.64,"strong"),
+        ("PASS WON",31.08,36.68,10.79,35.18,"strong"),("PASS WON",53.52,12.57,66.82,17.72,"strong"),
+        ("PASS WON",66.82,7.75,55.68,39.83,"strong"),("PASS WON",74.79,44.99,82.94,7.42,"strong"),
+        ("PASS WON",78.45,8.75,63.16,26.87,"strong"),("PASS WON",67.15,21.22,74.30,21.55,"strong"),
+        ("PASS WON",69.64,11.24,55.51,36.68,"strong"),("PASS WON",62.16,53.63,64.49,34.18,"strong"),
+        ("PASS WON",28.58,39.17,28.75,52.80,"strong"),("PASS WON",31.24,22.05,10.79,36.01,"strong"),
+        ("PASS WON",36.73,15.56,42.71,0.77,"strong"),("PASS WON",27.09,23.54,37.39,3.10,"strong"),
+        ("PASS WON",31.57,12.41,22.93,39.50,"strong"),("PASS WON",27.75,18.06,12.12,39.50,"strong"),
+        ("PASS WON",35.56,4.09,14.12,31.02,"strong"),("PASS WON",10.30,25.37,25.59,2.93,"strong"),
+        ("PASS WON",11.13,28.36,28.75,5.26,"strong"),("PASS WON",13.95,28.36,25.09,4.43,"strong"),
+        ("PASS WON",36.23,12.74,11.96,29.19,"strong"),("PASS WON",40.72,22.71,13.79,36.68,"strong"),
+        ("PASS WON",32.41,26.54,43.88,26.37,"strong"),("PASS WON",27.75,40.50,27.58,54.46,"strong"),
+        ("PASS WON",34.40,46.82,48.20,62.94,"strong"),("PASS WON",53.35,53.46,53.52,62.77,"strong"),
+        ("PASS WON",49.19,10.58,40.88,40.33,"strong"),("PASS WON",60.00,7.25,54.51,38.01,"strong"),
+        ("PASS WON",58.67,26.87,80.78,24.54,"strong"),("PASS WON",59.17,30.19,74.96,8.75,"strong"),
         ("PASS WON",76.29,24.54,85.10,3.76,"strong"),
-        ("PASS LOST",41.43,53.55,59.07,48.54,"strong"),
-        ("PASS LOST",10.24,29.97,49.79,23.85,"strong"),
-        ("PASS LOST",33.08,25.15,65.76,2.13,"strong"),
-        ("PASS LOST",57.40,18.65,71.70,0.46,"strong"),
+        ("PASS LOST",41.43,53.55,59.07,48.54,"strong"),("PASS LOST",10.24,29.97,49.79,23.85,"strong"),
+        ("PASS LOST",33.08,25.15,65.76,2.13,"strong"),("PASS LOST",57.40,18.65,71.70,0.46,"strong"),
         ("PASS LOST",63.90,24.03,92.30,27.19,"strong"),
-        ("PASS WON",18.61,23.38,3.15,43.16,"weak"),
-        ("PASS WON",32.24,22.21,26.75,46.48,"weak"),
-        ("PASS WON",46.37,16.06,39.72,44.49,"weak"),
-        ("PASS WON",52.35,12.57,44.71,44.16,"weak"),
-        ("PASS WON",55.18,12.07,42.71,40.83,"weak"),
-        ("PASS WON",55.51,2.76,73.96,3.10,"weak"),
-        ("PASS WON",56.18,19.89,55.35,44.65,"weak"),
-        ("PASS WON",58.50,29.03,51.19,45.15,"weak"),
-        ("PASS WON",56.01,24.87,66.48,40.33,"weak"),
-        ("PASS WON",61.16,36.84,73.63,27.20,"weak"),
-        ("PASS WON",66.65,16.73,57.34,40.00,"weak"),
-        ("PASS WON",79.45,4.26,64.65,26.20,"weak"),
+        ("PASS WON",18.61,23.38,3.15,43.16,"weak"),("PASS WON",32.24,22.21,26.75,46.48,"weak"),
+        ("PASS WON",46.37,16.06,39.72,44.49,"weak"),("PASS WON",52.35,12.57,44.71,44.16,"weak"),
+        ("PASS WON",55.18,12.07,42.71,40.83,"weak"),("PASS WON",55.51,2.76,73.96,3.10,"weak"),
+        ("PASS WON",56.18,19.89,55.35,44.65,"weak"),("PASS WON",58.50,29.03,51.19,45.15,"weak"),
+        ("PASS WON",56.01,24.87,66.48,40.33,"weak"),("PASS WON",61.16,36.84,73.63,27.20,"weak"),
+        ("PASS WON",66.65,16.73,57.34,40.00,"weak"),("PASS WON",79.45,4.26,64.65,26.20,"weak"),
     ],
 }
 
-# ── Advanced Passes data ─────────────────────────────────────────────────────
 special_data = {
     MATCH_SAC: [
         ("LBP WON",44.37,19.05,57.84,52.30),("LBP WON",48.53,56.12,71.30,56.29),
@@ -218,10 +253,11 @@ special_data = {
     ],
 }
 
-# ── Helpers ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────��────────────────────────────────────────────────────
 def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
-    dx   = x_end - x_start
-    dy   = y_end - y_start
+    dx = x_end - x_start; dy = y_end - y_start
     dist = np.sqrt(dx**2 + dy**2)
     angle_deg = np.degrees(np.arctan2(abs(dy), dx))
     if angle_deg <= 45.0:  return "forward"
@@ -230,28 +266,17 @@ def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
         return "lateral_right" if dy > 0 else "lateral_left"
     return "forward" if dx >= 0 else "backward"
 
-
 def progressive_pass(x_start: float, x_end: float) -> bool:
-    dist_start = FIELD_X - x_start
-    dist_end   = FIELD_X - x_end
-    closer_by  = dist_start - dist_end
-    start_own  = x_start < HALF_LINE_X
-    end_own    = x_end   < HALF_LINE_X
+    dist_start = FIELD_X - x_start; dist_end = FIELD_X - x_end
+    closer_by = dist_start - dist_end
+    start_own = x_start < HALF_LINE_X; end_own = x_end < HALF_LINE_X
     if start_own and end_own:  return closer_by >= 30.0
     if start_own != end_own:   return closer_by >= 15.0
     return closer_by >= 10.0
 
-
-def _save_fig(fig) -> Image.Image:
-    fig.canvas.draw()
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=FIG_DPI,
-                facecolor=fig.get_facecolor(), bbox_inches="tight")
-    buf.seek(0)
-    return Image.open(buf)
-
-
-# ── Build DataFrames ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Build DataFrames — pass map + xT columns
+# ─────────────────────────────────────────────────────────────────────────────
 dfs_by_match: dict = {}
 for match_name, events in matches_data.items():
     dfm = pd.DataFrame(events, columns=["type","x_start","y_start","x_end","y_end","foot"])
@@ -269,10 +294,16 @@ for match_name, events in matches_data.items():
     dfm["is_lateral"]       = dfm["is_lateral_left"] | dfm["is_lateral_right"]
     dfm["is_progressive"]   = dfm.apply(lambda r: progressive_pass(r.x_start, r.x_end), axis=1)
     dfm["pass_distance"]    = np.sqrt((dfm.x_end-dfm.x_start)**2+(dfm.y_end-dfm.y_start)**2)
+    # xT
+    dfm["xt_start"]     = dfm.apply(lambda r: xt_value(r.x_start, r.y_start), axis=1)
+    dfm["xt_end"]       = dfm.apply(lambda r: xt_value(r.x_end,   r.y_end),   axis=1)
+    dfm["delta_xt"]     = np.where(dfm["is_won"], dfm["xt_end"] - dfm["xt_start"], 0.0)
+    dfm["dist_bonus"]   = distance_bonus(dfm["pass_distance"].values)
+    dfm["delta_xt_adj"] = np.where(dfm["is_won"],
+                                   dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
     dfs_by_match[match_name] = dfm
 
-df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
-
+# Advanced passes
 sp_dfs_by_match: dict = {}
 for match_name, events in special_data.items():
     dfm = pd.DataFrame(events, columns=["type","x_start","y_start","x_end","y_end"])
@@ -286,99 +317,134 @@ for match_name, events in special_data.items():
     dfm["pass_distance"] = np.sqrt((dfm.x_end-dfm.x_start)**2+(dfm.y_end-dfm.y_start)**2)
     sp_dfs_by_match[match_name] = dfm
 
+df_all    = pd.concat(dfs_by_match.values(),    ignore_index=True)
 sp_df_all = pd.concat(sp_dfs_by_match.values(), ignore_index=True)
 
-
-# ── Stats ──────────────────────────────────────────────────────────────────────
-def _dir_stats(sub: pd.DataFrame):
-    n = max(len(sub), 1)
-    fwd = int(sub["is_forward"].sum());      bwd = int(sub["is_backward"].sum())
-    ll  = int(sub["is_lateral_left"].sum()); lr  = int(sub["is_lateral_right"].sum())
-    return {"fwd":fwd,"fwd_pct":round(fwd/n*100,1),"bwd":bwd,"bwd_pct":round(bwd/n*100,1),
-            "ll":ll,"ll_pct":round(ll/n*100,1),"lr":lr,"lr_pct":round(lr/n*100,1)}
-
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Stats
+# ─────────────────────────────────────────────────────────────────────────────
 def compute_stats(df: pd.DataFrame) -> dict:
     total = len(df)
     if total == 0:
-        return {k:0 for k in [
-            "total_passes","completed_passes","incomplete_passes","accuracy_pct",
-            "strong_total","strong_completed","strong_incomplete","strong_accuracy_pct",
-            "strong_avg_dist","strong_prog_total","strong_prog_completed",
-            "strong_fwd","strong_fwd_pct","strong_bwd","strong_bwd_pct",
-            "strong_ll","strong_ll_pct","strong_lr","strong_lr_pct",
-            "weak_total","weak_completed","weak_incomplete","weak_accuracy_pct",
-            "weak_avg_dist","weak_tendency_pct","weak_prog_total","weak_prog_completed",
-            "weak_fwd","weak_fwd_pct","weak_bwd","weak_bwd_pct",
-            "weak_ll","weak_ll_pct","weak_lr","weak_lr_pct",
-            "prog_total","prog_completed","prog_accuracy_pct","prog_pct_of_total"]}
-    completed = int(df["is_won"].sum())
-    strong = df[df["foot"]=="strong"]; weak = df[df["foot"]=="weak"]
-    st_t = len(strong); st_c = int(strong["is_won"].sum())
-    wk_t = len(weak);   wk_c = int(weak["is_won"].sum())
-    prog_t = int(df["is_progressive"].sum())
-    prog_c = int((df["is_progressive"] & df["is_won"]).sum())
-    sd = _dir_stats(strong); wd = _dir_stats(weak)
+        return {k: 0 for k in [
+            "total","completed","incomplete","accuracy",
+            "prog_total","prog_completed","prog_pct",
+            "fwd","fwd_pct","bwd","bwd_pct","lat","lat_pct",
+            "pos_pct","high_xt_pct","sum_dxt"]}
+    completed  = int(df["is_won"].sum())
+    prog_t     = int(df["is_progressive"].sum())
+    prog_c     = int((df["is_progressive"] & df["is_won"]).sum())
+    fwd        = int(df["is_forward"].sum())
+    bwd        = int(df["is_backward"].sum())
+    lat        = int(df["is_lateral"].sum())
+    pos_mask   = df["is_won"] & (df["delta_xt_adj"] > 0)
+    pos_count  = int(pos_mask.sum())
+    high_xt    = int((df["delta_xt_adj"] > 0.1).sum())
+    sum_dxt    = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
     return {
-        "total_passes":total,"completed_passes":completed,"incomplete_passes":total-completed,
-        "accuracy_pct":round(completed/total*100,2),
-        "strong_total":st_t,"strong_completed":st_c,"strong_incomplete":st_t-st_c,
-        "strong_accuracy_pct":round(st_c/st_t*100,2) if st_t else 0,
-        "strong_avg_dist":round(float(strong["pass_distance"].mean()),2) if st_t else 0,
-        "strong_prog_total":int(strong["is_progressive"].sum()),
-        "strong_prog_completed":int((strong["is_progressive"]&strong["is_won"]).sum()),
-        **{f"strong_{k}":v for k,v in sd.items()},
-        "weak_total":wk_t,"weak_completed":wk_c,"weak_incomplete":wk_t-wk_c,
-        "weak_accuracy_pct":round(wk_c/wk_t*100,2) if wk_t else 0,
-        "weak_avg_dist":round(float(weak["pass_distance"].mean()),2) if wk_t else 0,
-        "weak_tendency_pct":round(wk_t/total*100,2),
-        "weak_prog_total":int(weak["is_progressive"].sum()),
-        "weak_prog_completed":int((weak["is_progressive"]&weak["is_won"]).sum()),
-        **{f"weak_{k}":v for k,v in wd.items()},
-        "prog_total":prog_t,"prog_completed":prog_c,
-        "prog_accuracy_pct":round(prog_c/prog_t*100,2) if prog_t else 0,
-        "prog_pct_of_total":round(prog_t/total*100,2),
+        "total":      total,
+        "completed":  completed,
+        "incomplete": total - completed,
+        "accuracy":   round(completed / total * 100, 1),
+        "prog_total":     prog_t,
+        "prog_completed": prog_c,
+        "prog_pct":       round(prog_t / total * 100, 1),
+        "fwd":     fwd,   "fwd_pct": round(fwd / total * 100, 1),
+        "bwd":     bwd,   "bwd_pct": round(bwd / total * 100, 1),
+        "lat":     lat,   "lat_pct": round(lat / total * 100, 1),
+        "pos_pct":      round(pos_count / total * 100, 1),
+        "high_xt_pct":  round(high_xt   / total * 100, 1),
+        "sum_dxt":      round(sum_dxt, 3),
     }
-
 
 def compute_advanced_stats(sp_df: pd.DataFrame, total_passes: int) -> dict:
-    lbp  = sp_df[sp_df["pass_type"] == "line_breaking"]
-    bpp  = sp_df[sp_df["pass_type"] == "ball_progression"]
-    lbp_t = len(lbp); lbp_c = int(lbp["is_won"].sum())
-    bpp_t = len(bpp)
+    lbp   = sp_df[sp_df["pass_type"] == "line_breaking"]
+    bpp   = sp_df[sp_df["pass_type"] == "ball_progression"]
+    lbp_t = len(lbp); lbp_c = int(lbp["is_won"].sum()); bpp_t = len(bpp)
     ref   = max(total_passes, 1)
     return {
-        "lbp_total":     lbp_t,
-        "lbp_completed": lbp_c,
-        "lbp_incomplete":lbp_t - lbp_c,
-        "lbp_accuracy":  round(lbp_c / lbp_t * 100, 2) if lbp_t else 0,
-        "lbp_tendency":  round(lbp_t / ref * 100, 2),
-        "bpp_total":     bpp_t,
-        "bpp_tendency":  round(bpp_t / ref * 100, 2),
+        "lbp_total": lbp_t, "lbp_completed": lbp_c,
+        "lbp_incomplete": lbp_t - lbp_c,
+        "lbp_accuracy": round(lbp_c / lbp_t * 100, 1) if lbp_t else 0,
+        "lbp_tendency": round(lbp_t / ref * 100, 1),
+        "bpp_total": bpp_t,
+        "bpp_tendency": round(bpp_t / ref * 100, 1),
     }
 
+def small_metric(label: str, value: str, delta: str | None = None):
+    html = (f'<div class="small-metric"><div class="label">{label}</div>'
+            f'<div class="value">{value}</div>')
+    if delta is not None:
+        html += f'<div class="delta">{delta}</div>'
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
 
-# ── Draw helpers ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Comparison stat box (SAC vs NYC side by side)
+# ─────────────────────────────────────────────────────────────────────────────
+SAC_COLOR = "#60a5fa"   # blue
+NYC_COLOR = "#f87171"   # red
+
+def cmp_box(label: str, val_sac, val_nyc,
+            sub_sac: str = "", sub_nyc: str = "",
+            border: str = "#3b82f6"):
+    html = f"""
+    <div class="cmp-box" style="border-left:3px solid {border};">
+      <div class="cb-label">{label}</div>
+      <div class="cmp-row">
+        <div class="cmp-cell">
+          <div class="cc-tag" style="color:{SAC_COLOR};">SAC 04/26</div>
+          <div class="cc-val">{val_sac}</div>
+          {'<div class="cc-sub">'+sub_sac+'</div>' if sub_sac else ''}
+        </div>
+        <div class="cmp-sep"></div>
+        <div class="cmp-cell">
+          <div class="cc-tag" style="color:{NYC_COLOR};">NYC 11/25</div>
+          <div class="cc-val">{val_nyc}</div>
+          {'<div class="cc-sub">'+sub_nyc+'</div>' if sub_nyc else ''}
+        </div>
+      </div>
+    </div>"""
+    st.markdown(html, unsafe_allow_html=True)
+
+def sec_hdr(label: str):
+    st.markdown(f'<div class="section-header">{label}</div>', unsafe_allow_html=True)
+
+def row_divider():
+    st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
+
+def row_label(text: str, cls: str = "row-label-blue"):
+    st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Draw helpers
+# ─────────────────────────────────────────────────────────────────────────────
 def _base_pitch(bg="#1a1a2e"):
     pitch = Pitch(pitch_type="statsbomb", pitch_color=bg,
                   line_color="#ffffff", line_alpha=0.95)
     fig, ax = pitch.draw(figsize=(FIG_W, FIG_H))
-    fig.set_facecolor(bg)
-    fig.set_dpi(FIG_DPI)
-    # final third: white dashed
+    fig.set_facecolor(bg); fig.set_dpi(FIG_DPI)
     ax.axvline(x=FINAL_THIRD_LINE_X, color="#ffffff", lw=1.2, alpha=0.40, linestyle="--")
     ax.axvline(x=HALF_LINE_X,        color="#ffffff", lw=0.7, alpha=0.12, linestyle="--")
     return fig, ax, pitch
 
-
-def _attack_arrow(fig):
+def _attack_arrow(fig, has_cbar=False):
+    ox = -0.04 if has_cbar else 0.0
     fig.patches.append(FancyArrowPatch(
-        (0.44, 0.045), (0.56, 0.045), transform=fig.transFigure,
+        (0.44+ox, 0.045), (0.56+ox, 0.045), transform=fig.transFigure,
         arrowstyle="-|>", mutation_scale=11, linewidth=1.6, color="#aaaaaa"))
-    fig.text(0.50, 0.012, "Attacking Direction", ha="center", va="bottom",
+    fig.text(0.50+ox, 0.012, "Attacking Direction", ha="center", va="bottom",
              transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
 
+def _save_fig(fig) -> Image.Image:
+    fig.canvas.draw()
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=FIG_DPI,
+                facecolor=fig.get_facecolor(), bbox_inches="tight")
+    buf.seek(0)
+    return Image.open(buf)
 
+# ── Pass map ──────────────────────────────────────────────────────────────────
 def draw_pass_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
@@ -403,35 +469,9 @@ def draw_pass_map(df: pd.DataFrame):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
-
-def draw_advanced_pass_map(df: pd.DataFrame, title: str):
-    fig, ax, pitch = _base_pitch()
-    for _, row in df.iterrows():
-        ptype  = row["pass_type"]; is_won = bool(row["is_won"])
-        if ptype == "ball_progression":  color, alpha = COLOR_BPP,      0.82
-        elif is_won:                     color, alpha = COLOR_LBP_WON,  0.82
-        else:                            color, alpha = COLOR_LBP_LOST, 0.68
-        pitch.arrows(row.x_start, row.y_start, row.x_end, row.y_end,
-                     color=color, width=1.4, headwidth=2.1, headlength=2.1,
-                     ax=ax, zorder=3, alpha=alpha)
-        pitch.scatter(row.x_start, row.y_start, s=36, marker="o", color=color,
-                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
-    ax.set_title(title, fontsize=9, color="#ffffff", pad=5)
-    leg = ax.legend(handles=[
-        Line2D([0],[0], color=COLOR_LBP_WON,  lw=2.0, label="Line Breaking – Completed",  alpha=0.85),
-        Line2D([0],[0], color=COLOR_LBP_LOST,  lw=2.0, label="Line Breaking – Incomplete", alpha=0.80),
-        Line2D([0],[0], color=COLOR_BPP,       lw=2.0, label="Ball Progression Pass",      alpha=0.85),
-    ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
-       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5,
-       labelspacing=0.35, borderpad=0.4)
-    for t in leg.get_texts(): t.set_color("white")
-    leg.get_frame().set_alpha(0.90)
-    _attack_arrow(fig)
-    return _save_fig(fig), ax, fig
-
-
+# ── Corridor heatmap ──────────────────────────────────────────────────────────
 def draw_corridor_heatmap(df: pd.DataFrame):
-    df_s   = df[df["is_won"]].copy()
+    df_s = df[df["is_won"]].copy()
     x_bins = np.linspace(0.0, FIELD_X, 7)
     corridors = {
         "left":   (LANE_LEFT_MIN,  FIELD_Y),
@@ -468,180 +508,200 @@ def draw_corridor_heatmap(df: pd.DataFrame):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
+# ── Comet arrow (from SAA_Test1) ──────────────────────────────────────────────
+def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
+    segs = 12; ts = np.linspace(0.0, 1.0, segs+1)
+    base_alpha = 0.85; base_lw = 2.5
+    for i in range(segs):
+        t0, t1 = ts[i], ts[i+1]
+        xa = x0+(x1-x0)*t0; ya = y0+(y1-y0)*t0
+        xb = x0+(x1-x0)*t1; yb = y0+(y1-y0)*t1
+        alpha = base_alpha * (0.15 + 0.85 * t1)
+        lw    = base_lw    * (0.80 + 0.20 * t1)
+        ax.plot([xa,xb],[ya,yb], color=color, linewidth=lw, alpha=alpha,
+                zorder=4, solid_capstyle="round")
+    ax.scatter(x0, y0, s=20, marker="o", facecolors="none", edgecolors=color,
+               linewidths=1.5, zorder=5, alpha=base_alpha)
+    ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white",
+               linewidths=0.9, zorder=6, alpha=base_alpha)
 
-def draw_density_heatmap(df: pd.DataFrame):
-    NX_D, NY_D = 30, 20
-    x_edges = np.linspace(0, FIELD_X, NX_D + 1)
-    y_edges = np.linspace(0, FIELD_Y, NY_D + 1)
-    all_x = np.concatenate([df["x_start"].values, df["x_end"].values])
-    all_y = np.concatenate([df["y_start"].values, df["y_end"].values])
-    counts_h, _, _ = np.histogram2d(all_x, all_y, bins=[x_edges, y_edges])
-    counts_h = gaussian_filter(counts_h.T.astype(float), sigma=0.85)
-    fig, ax, pitch = _base_pitch(bg="#0f172a")
-    vmax = max(1.0, counts_h.max())
-    norm = Normalize(vmin=0, vmax=vmax)
-    margin = 0.20
-    for iy in range(NY_D):
-        for ix in range(NX_D):
-            val    = counts_h[iy, ix]
-            face_c = CMAP_DENSITY(norm(val)) if val >= 0.04 else "#0f172a"
-            ax.add_patch(Rectangle(
-                (x_edges[ix]+margin, y_edges[iy]+margin),
-                (x_edges[ix+1]-x_edges[ix]) - 2*margin,
-                (y_edges[iy+1]-y_edges[iy]) - 2*margin,
-                facecolor=face_c, edgecolor="white", lw=0.25, alpha=0.90, zorder=2))
-    sm   = plt.cm.ScalarMappable(cmap=CMAP_DENSITY, norm=norm)
-    cbar = fig.colorbar(sm, ax=ax, fraction=0.016, pad=0.02, shrink=0.62)
-    cbar.set_label("Density", color="#94a3b8", fontsize=7, labelpad=2)
-    cbar.ax.yaxis.set_tick_params(color="#94a3b8", labelsize=6)
-    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#94a3b8")
-    _attack_arrow(fig)
+# ── Top-10 xT map ─────────────────────────────────────────────────────────────
+def draw_top10_xt_map(df: pd.DataFrame):
+    fig, ax, pitch = _base_pitch()
+    top10 = (
+        df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
+        .sort_values("delta_xt_adj", ascending=False)
+        .head(10).copy().reset_index(drop=True)
+    )
+    top10["rank"] = np.arange(1, len(top10)+1)
+    if not top10.empty:
+        for _, row in top10.iterrows():
+            val   = float(row["delta_xt_adj"])
+            color = CMAP_TOP10(NORM_TOP10(np.clip(val, 0.05, 0.40)))
+            _draw_comet_arrow(ax,
+                              float(row.x_start), float(row.y_start),
+                              float(row.x_end),   float(row.y_end), color)
+    sm   = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
+    cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
+    cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
+    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
+    _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
+# ── Advanced pass map ─────────────────────────────────────────────────────────
+def draw_advanced_pass_map(df: pd.DataFrame, title: str):
+    fig, ax, pitch = _base_pitch()
+    for _, row in df.iterrows():
+        ptype  = row["pass_type"]; is_won = bool(row["is_won"])
+        if ptype == "ball_progression": color, alpha = COLOR_BPP,      0.82
+        elif is_won:                    color, alpha = COLOR_LBP_WON,  0.82
+        else:                           color, alpha = COLOR_LBP_LOST, 0.68
+        pitch.arrows(row.x_start, row.y_start, row.x_end, row.y_end,
+                     color=color, width=1.4, headwidth=2.1, headlength=2.1,
+                     ax=ax, zorder=3, alpha=alpha)
+        pitch.scatter(row.x_start, row.y_start, s=36, marker="o", color=color,
+                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
+    ax.set_title(title, fontsize=9, color="#ffffff", pad=5)
+    leg = ax.legend(handles=[
+        Line2D([0],[0], color=COLOR_LBP_WON,  lw=2.0, label="Line Breaking – Completed",  alpha=0.85),
+        Line2D([0],[0], color=COLOR_LBP_LOST,  lw=2.0, label="Line Breaking – Incomplete", alpha=0.80),
+        Line2D([0],[0], color=COLOR_BPP,       lw=2.0, label="Ball Progression Pass",      alpha=0.85),
+    ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
+       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5,
+       labelspacing=0.35, borderpad=0.4)
+    for t in leg.get_texts(): t.set_color("white")
+    leg.get_frame().set_alpha(0.90)
+    _attack_arrow(fig)
+    return _save_fig(fig), ax, fig
 
-def _top_zone_transitions(df_s: pd.DataFrame, top_k: int = 3):
-    x_bins = np.linspace(0.0, FIELD_X, 7)
-    y_bins = np.array([0.0, LANE_RIGHT_MAX, LANE_LEFT_MIN, FIELD_Y])
-    if df_s.empty: return [], x_bins, y_bins
-    sx = np.clip(np.searchsorted(x_bins, df_s["x_start"].to_numpy(), side="right")-1, 0, 5)
-    sy = np.clip(np.searchsorted(y_bins, df_s["y_start"].to_numpy(), side="right")-1, 0, 2)
-    ex = np.clip(np.searchsorted(x_bins, df_s["x_end"].to_numpy(),   side="right")-1, 0, 5)
-    ey = np.clip(np.searchsorted(y_bins, df_s["y_end"].to_numpy(),   side="right")-1, 0, 2)
-    transitions: dict = defaultdict(int)
-    for a, b, c, d in zip(sx, sy, ex, ey):
-        if int(a)==int(c) and int(b)==int(d): continue
-        transitions[(int(a),int(b),int(c),int(d))] += 1
-    return sorted(transitions.items(), key=lambda kv: kv[1], reverse=True)[:top_k], x_bins, y_bins
-
-
-def draw_top_connection_minimaps(df: pd.DataFrame, top_k: int = 3,
-                                  title: str = "Top Zone Connections — Completed Passes"):
-    df_s = df[df["is_won"]].copy()
-    links, x_bins, y_bins = _top_zone_transitions(df_s, top_k=top_k)
-    x_cent = (x_bins[:-1]+x_bins[1:])/2.0
-    y_cent = (y_bins[:-1]+y_bins[1:])/2.0
-    max_cnt = max([v for _,v in links], default=1) if links else 1
-    fig, axes = plt.subplots(1, top_k, figsize=(FIG_W*1.5, FIG_H*0.72), dpi=FIG_DPI)
-    if top_k == 1: axes = [axes]
-    fig.set_facecolor("#1a1a2e")
-    pitch = Pitch(pitch_type="statsbomb", pitch_color="#1a1a2e",
-                  line_color="#ffffff", line_alpha=0.90)
-    for idx, ax in enumerate(axes):
-        pitch.draw(ax=ax)
-        ax.axhline(y=LANE_LEFT_MIN,  color="#ffffff", lw=0.4, alpha=0.12, linestyle="--")
-        ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.4, alpha=0.12, linestyle="--")
-        if idx >= len(links):
-            ax.set_title("—", fontsize=8, color="#dbeafe", pad=3); continue
-        (ix0,iy0,ix1,iy1), cnt = links[idx]
-        x0, y0 = float(x_cent[ix0]), float(y_cent[iy0])
-        x1, y1 = float(x_cent[ix1]), float(y_cent[iy1])
-        rel = cnt / max_cnt; color = plt.cm.Blues(0.40+0.55*rel)
-        ax.add_patch(Rectangle(
-            (x_bins[ix0],y_bins[iy0]), x_bins[ix0+1]-x_bins[ix0], y_bins[iy0+1]-y_bins[iy0],
-            facecolor=(0.20,0.45,0.95,0.18), edgecolor=(1,1,1,0.18), lw=0.6, zorder=2))
-        ax.add_patch(Rectangle(
-            (x_bins[ix1],y_bins[iy1]), x_bins[ix1+1]-x_bins[ix1], y_bins[iy1+1]-y_bins[iy1],
-            facecolor=(0.02,0.70,0.55,0.18), edgecolor=(1,1,1,0.18), lw=0.6, zorder=2))
-        if ix0==ix1 and iy0==iy1:
-            ax.scatter([x0],[y0], s=40+80*rel, c=[color], marker="o",
-                       edgecolors="white", linewidths=0.5, alpha=0.35+0.60*rel, zorder=5)
-        else:
-            rad = float(np.clip(0.10*np.sign((ix1-ix0)+0.4*(iy1-iy0)), -0.30, 0.30))
-            ax.add_patch(FancyArrowPatch(
-                (x0,y0),(x1,y1), connectionstyle=f"arc3,rad={rad}",
-                arrowstyle="-|>", mutation_scale=9+8*rel,
-                lw=1.0+3.5*rel, color=color, alpha=0.35+0.60*rel, zorder=4))
-        ax.text((x0+x1)/2, (y0+y1)/2, f"{cnt}", color="#e5efff", fontsize=8,
-                ha="center", va="center", zorder=7,
-                bbox=dict(boxstyle="round,pad=0.14", fc=(0.06,0.09,0.14,0.80), ec="none"))
-        ax.set_title(f"#{idx+1}  ·  {cnt}×", fontsize=8, color="#dbeafe", pad=3)
-    fig.suptitle(title, fontsize=9, color="#ffffff", y=0.99)
-    fig.tight_layout(rect=[0,0,1,0.94])
-    fig.canvas.draw()
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=FIG_DPI,
-                facecolor=fig.get_facecolor(), bbox_inches="tight")
-    buf.seek(0)
-    return Image.open(buf), axes, fig
-
-
-# ══════════════════════════════════════════════════════════════════
-# PRE-RENDER all 6 images (avoid redundant renders)
-# ══════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-render all 6 pitch images + compute stats
+# ─────────────────────────────────────────────────────────────────────────────
 df_sac = dfs_by_match[MATCH_SAC].copy()
 df_nyc = dfs_by_match[MATCH_NYC].copy()
 
-img_pm_sac,  fig_pm_sac  = draw_pass_map(df_sac);  plt.close(fig_pm_sac)
-img_pm_nyc,  fig_pm_nyc  = draw_pass_map(df_nyc);  plt.close(fig_pm_nyc)
-img_ht_sac,  fig_ht_sac  = draw_corridor_heatmap(df_sac); plt.close(fig_ht_sac)
-img_ht_nyc,  fig_ht_nyc  = draw_corridor_heatmap(df_nyc); plt.close(fig_ht_nyc)
-img_dn_sac,  fig_dn_sac  = draw_density_heatmap(df_sac);  plt.close(fig_dn_sac)
-img_dn_nyc,  fig_dn_nyc  = draw_density_heatmap(df_nyc);  plt.close(fig_dn_nyc)
+img_pm_sac,  fig_pm_sac  = draw_pass_map(df_sac);          plt.close(fig_pm_sac)
+img_pm_nyc,  fig_pm_nyc  = draw_pass_map(df_nyc);          plt.close(fig_pm_nyc)
+img_ht_sac,  fig_ht_sac  = draw_corridor_heatmap(df_sac);  plt.close(fig_ht_sac)
+img_ht_nyc,  fig_ht_nyc  = draw_corridor_heatmap(df_nyc);  plt.close(fig_ht_nyc)
+img_xt_sac,  fig_xt_sac  = draw_top10_xt_map(df_sac);      plt.close(fig_xt_sac)
+img_xt_nyc,  fig_xt_nyc  = draw_top10_xt_map(df_nyc);      plt.close(fig_xt_nyc)
 
+s_sac = compute_stats(df_sac)
+s_nyc = compute_stats(df_nyc)
 
-# ══════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # TABS
-# ══════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 tab_passmap, tab_advanced = st.tabs(["📋 Pass Map", "🎯 Advanced Passes"])
 
-
-# ── TAB 1: PASS MAP ───────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 1 — 3-column layout, 3 rows
+# ─────────────────────────────────────────────────────────────────────────────
 with tab_passmap:
+    col_sac, col_nyc, col_stats = st.columns([1, 1, 1], gap="medium")
+
+    # ── ROW 1: Pass Maps ─────────────────────────────────────────────────────
+    with col_sac:
+        row_label("🟦 Pass Map · Sacramento United · 25/04/2026", "row-label-blue")
+        st.image(img_pm_sac, use_container_width=True)
+
+    with col_nyc:
+        row_label("🟦 Pass Map · New York City FC · 25/11/2025", "row-label-blue")
+        st.image(img_pm_nyc, use_container_width=True)
+
+    with col_stats:
+        sec_hdr("📋 Pass Overview")
+        cmp_box("Total Passes",
+                s_sac["total"], s_nyc["total"],
+                border="#3b82f6")
+        cmp_box("Completed",
+                f"{s_sac['completed']} ({s_sac['accuracy']:.0f}%)",
+                f"{s_nyc['completed']} ({s_nyc['accuracy']:.0f}%)",
+                sub_sac=f"{s_sac['incomplete']} incomplete",
+                sub_nyc=f"{s_nyc['incomplete']} incomplete",
+                border="#10b981")
+        cmp_box("Progressive Passes",
+                f"{s_sac['prog_total']} ({s_sac['prog_pct']:.0f}%)",
+                f"{s_nyc['prog_total']} ({s_nyc['prog_pct']:.0f}%)",
+                sub_sac=f"{s_sac['prog_completed']} completed",
+                sub_nyc=f"{s_nyc['prog_completed']} completed",
+                border="#2F80ED")
+
+    # ── Divider ───────────────────────────────────────────────────────────────
+    with col_sac:   row_divider()
+    with col_nyc:   row_divider()
+    with col_stats: row_divider()
+
+    # ── ROW 2: Zone Heatmaps ─────────────────────────────────────────────────
+    with col_sac:
+        row_label("🟩 Zone Heatmap · Sacramento United", "row-label-green")
+        st.image(img_ht_sac, use_container_width=True)
+
+    with col_nyc:
+        row_label("🟩 Zone Heatmap · New York City FC", "row-label-green")
+        st.image(img_ht_nyc, use_container_width=True)
+
+    with col_stats:
+        sec_hdr("🧭 Pass Direction")
+        cmp_box("⬆️ Forward",
+                f"{s_sac['fwd']} ({s_sac['fwd_pct']:.0f}%)",
+                f"{s_nyc['fwd']} ({s_nyc['fwd_pct']:.0f}%)",
+                border="#10b981")
+        cmp_box("⬇️ Backward",
+                f"{s_sac['bwd']} ({s_sac['bwd_pct']:.0f}%)",
+                f"{s_nyc['bwd']} ({s_nyc['bwd_pct']:.0f}%)",
+                border="#f59e0b")
+        cmp_box("↔️ Lateral",
+                f"{s_sac['lat']} ({s_sac['lat_pct']:.0f}%)",
+                f"{s_nyc['lat']} ({s_nyc['lat_pct']:.0f}%)",
+                border="#8b5cf6")
+
+    # ── Divider ───────────────────────────────────────────────────────────────
+    with col_sac:   row_divider()
+    with col_nyc:   row_divider()
+    with col_stats: row_divider()
+
+    # ── ROW 3: Top-10 xT Maps ────────────────────────────────────────────────
+    with col_sac:
+        row_label("🟡 Top 10 ΔxT Passes · Sacramento United", "row-label-amber")
+        st.image(img_xt_sac, use_container_width=True)
+
+    with col_nyc:
+        row_label("🟡 Top 10 ΔxT Passes · New York City FC", "row-label-amber")
+        st.image(img_xt_nyc, use_container_width=True)
+
+    with col_stats:
+        sec_hdr("⚡ xT Analysis")
+        cmp_box("% Positive ΔxT",
+                f"{s_sac['pos_pct']:.1f}%",
+                f"{s_nyc['pos_pct']:.1f}%",
+                sub_sac="passes that gained xT",
+                sub_nyc="passes that gained xT",
+                border="#f59e0b")
+        cmp_box("% ΔxT > 0.1",
+                f"{s_sac['high_xt_pct']:.1f}%",
+                f"{s_nyc['high_xt_pct']:.1f}%",
+                sub_sac="high-threat passes",
+                sub_nyc="high-threat passes",
+                border="#f97316")
+        cmp_box("Σ ΔxT",
+                f"{s_sac['sum_dxt']:.3f}",
+                f"{s_nyc['sum_dxt']:.3f}",
+                sub_sac="total xT generated",
+                sub_nyc="total xT generated",
+                border="#b91c1c")
+
     st.caption(
-        "Grey = Completed  ·  🔵 Blue = Progressive  ·  🔴 Red = Incomplete  "
-        "·  White dashed = Final Third"
+        "Grey = Completed  ·  🔵 Progressive  ·  🔴 Incomplete  ·  "
+        "White dashed = Final Third  ·  🟡 Comet = Top-10 ΔxT passes"
     )
 
-    col_sac, col_nyc = st.columns(2, gap="medium")
 
-    # ── Row labels ─────────────────────────────────────���──────────────────────
-    with col_sac:
-        st.markdown('<div class="match-title">🟦 Pass Map — Sacramento United · 25/04/2026</div>',
-                    unsafe_allow_html=True)
-    with col_nyc:
-        st.markdown('<div class="match-title">🟦 Pass Map — New York City FC · 25/11/2025</div>',
-                    unsafe_allow_html=True)
-
-    # ── Row 1: Pass Maps ──────────────────────────────────────────────────────
-    with col_sac:
-        st.image(img_pm_sac, width=IMG_W)
-    with col_nyc:
-        st.image(img_pm_nyc, width=IMG_W)
-
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
-
-    # ── Row 2 labels ──────────────────────────────────────────────────────────
-    with col_sac:
-        st.markdown('<div class="match-title-green">🟩 Zone Heatmap — Sacramento United · 25/04/2026</div>',
-                    unsafe_allow_html=True)
-    with col_nyc:
-        st.markdown('<div class="match-title-green">🟩 Zone Heatmap — New York City FC · 25/11/2025</div>',
-                    unsafe_allow_html=True)
-
-    # ── Row 2: Heatmaps ───────────────────────────────────────────────────────
-    with col_sac:
-        st.image(img_ht_sac, width=IMG_W)
-    with col_nyc:
-        st.image(img_ht_nyc, width=IMG_W)
-
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
-
-    # ── Row 3 labels ──────────────────────────────────────────────────────────
-    with col_sac:
-        st.markdown('<div class="match-title-purple">🟣 Pass Density — Sacramento United · 25/04/2026</div>',
-                    unsafe_allow_html=True)
-    with col_nyc:
-        st.markdown('<div class="match-title-purple">🟣 Pass Density — New York City FC · 25/11/2025</div>',
-                    unsafe_allow_html=True)
-
-    # ── Row 3: Density Maps ───────────────────────────────────────────────────
-    with col_sac:
-        st.image(img_dn_sac, width=IMG_W)
-    with col_nyc:
-        st.image(img_dn_nyc, width=IMG_W)
-
-
-# ── TAB 2: ADVANCED PASSES ────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 2 — Advanced Passes (unchanged)
+# ─────────────────────────────────────────────────────────────────────────────
 with tab_advanced:
     st.caption("Line Breaking Passes (🟡 yellow) and Ball Progression Passes (🟣 purple).")
     sp_col_f, sp_col_field, sp_col_stats = st.columns([0.9, 2, 1], gap="large")
@@ -652,7 +712,7 @@ with tab_advanced:
         sp_pos = st.radio("Filter by position", ["All Positions","LCB","RCB"],
                           index=0, key="sp_pos")
         st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:-6px;margin-bottom:4px;'>"
-                    "LCB: Sacramento United (25/04/2026), New York City FC (25/11/2025)</div>",
+                    "LCB: Sacramento (25/04/2026), NYC (25/11/2025)</div>",
                     unsafe_allow_html=True)
         st.markdown('<hr class="filter-divider">', unsafe_allow_html=True)
 
@@ -692,39 +752,14 @@ with tab_advanced:
                     unsafe_allow_html=True)
         sp_img, sp_ax, sp_fig = draw_advanced_pass_map(
             sp_df_base, title=f"Advanced Passes — {sp_match}")
-        sp_click = streamlit_image_coordinates(sp_img, width=680, key="sp_map")
-
-        sp_selected = None
-        if sp_click is not None:
-            rw, rh = sp_img.size
-            px = sp_click["x"]*(rw/sp_click["width"])
-            py = sp_click["y"]*(rh/sp_click["height"])
-            fx, fy = sp_ax.transData.inverted().transform((px, rh-py))
-            df_sel2 = sp_df_base.copy()
-            df_sel2["_dist"] = np.sqrt((df_sel2.x_start-fx)**2+(df_sel2.y_start-fy)**2)
-            cands2 = df_sel2[df_sel2["_dist"]<5.0].sort_values("_dist")
-            if not cands2.empty: sp_selected = cands2.iloc[0]
+        st.image(sp_img, use_container_width=True)
         plt.close(sp_fig)
 
         st.markdown('<h4 style="color:#ffffff;margin:14px 0 4px 0;">Zone Heatmap — Completed</h4>',
                     unsafe_allow_html=True)
         sp_heat_img, sp_hfig = draw_corridor_heatmap(sp_df_base)
-        st.image(sp_heat_img, use_container_width=True); plt.close(sp_hfig)
-
-        st.divider()
-        st.subheader("Selected Event")
-        if sp_selected is None:
-            st.info("Click an origin dot on the map to inspect an event.")
-        else:
-            ptype_label = ("Line Breaking Pass"
-                           if sp_selected["pass_type"]=="line_breaking"
-                           else "Ball Progression Pass")
-            status = "✅ Completed" if sp_selected["is_won"] else "❌ Incomplete"
-            st.success(f"Pass #{int(sp_selected['number'])} — {ptype_label} | {status}")
-            c1, c2 = st.columns(2)
-            c1.write(f"**Origin:** ({sp_selected.x_start:.2f}, {sp_selected.y_start:.2f})")
-            c2.write(f"**Destination:** ({sp_selected.x_end:.2f}, {sp_selected.y_end:.2f})")
-            st.metric("Pass Distance", f"{sp_selected.pass_distance:.1f} m")
+        st.image(sp_heat_img, use_container_width=True)
+        plt.close(sp_hfig)
 
         with st.expander("📊 Full Data Table"):
             dc2 = ["number","type","pass_type","outcome",
@@ -749,7 +784,7 @@ with tab_advanced:
             ba1, ba2 = st.columns(2)
             with ba1: small_metric("Accuracy", f"{ss['lbp_accuracy']:.1f}%")
             with ba2: small_metric("Tendency", f"{ss['lbp_tendency']:.1f}%",
-                                   delta=f"{ss['lbp_total']} of {total_pm} total passes")
+                                   delta=f"{ss['lbp_total']} of {total_pm} passes")
 
         with st.expander("🟣 Ball Progression Passes", expanded=True):
             st.markdown('<div class="stats-section-title">Ball Progression Passes</div>',
@@ -757,7 +792,7 @@ with tab_advanced:
             p1, p2 = st.columns(2)
             with p1: small_metric("Total",    f"{ss['bpp_total']}")
             with p2: small_metric("Tendency", f"{ss['bpp_tendency']:.1f}%",
-                                  delta=f"{ss['bpp_total']} of {total_pm} total passes")
+                                  delta=f"{ss['bpp_total']} of {total_pm} passes")
 
         st.divider()
         st.caption("🟡 Yellow = Line Breaking  ·  🟣 Purple = Ball Progression  ·  🔴 Red = Incomplete")
