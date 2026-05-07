@@ -10,7 +10,6 @@ from io import BytesIO
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.colors import Normalize, LinearSegmentedColormap
-from collections import defaultdict
 from scipy.ndimage import gaussian_filter
 import math
 
@@ -18,29 +17,38 @@ st.set_page_config(layout="wide", page_title="Caleb Simmons - Pass Evolution - S
 
 st.markdown("""
 <style>
+/* ── Row labels ─────────────────────────────────────────────────────── */
 .row-label{
-  font-size:12px;font-weight:700;color:#c8d6e5;letter-spacing:.3px;
-  margin-bottom:4px;margin-top:8px;padding:4px 8px;
-  background:rgba(255,255,255,.04);border-radius:4px;}
+  font-size:13px;font-weight:700;color:#c8d6e5;letter-spacing:.3px;
+  margin-bottom:4px;margin-top:8px;padding:5px 9px;
+  background:rgba(255,255,255,.04);border-radius:4px;line-height:1.3;}
 .row-label-blue  {border-left:3px solid #2F80ED;}
 .row-label-green {border-left:3px solid #10b981;}
 .row-label-amber {border-left:3px solid #f59e0b;}
-.section-header{
-  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
-  color:#94a3b8;margin:10px 0 6px 0;padding-bottom:4px;
-  border-bottom:1px solid rgba(255,255,255,.07);}
+
+/* ── Section header ──────────────────────────────────────────────────── */
+.sec-hdr{
+  font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;
+  padding:6px 10px;border-radius:5px;margin:0 0 8px 0;
+  background:rgba(255,255,255,.04);}
+
+/* ── Comparison box ──────────────────────────────────────────────────── */
 .cmp-box{
   background:rgba(255,255,255,.04);border-radius:10px;
-  padding:9px 11px;margin-bottom:7px;}
-.cmp-label{font-size:9px;color:#94a3b8;text-transform:uppercase;
-  letter-spacing:.6px;font-weight:600;margin-bottom:6px;}
-.cmp-row{display:flex;justify-content:space-between;align-items:flex-end;gap:4px;}
+  padding:10px 12px;margin-bottom:8px;}
+.cmp-label{
+  font-size:11px;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.6px;font-weight:600;margin-bottom:7px;}
+.cmp-row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
 .cmp-cell{flex:1;}
-.cc-tag{font-size:8px;font-weight:700;margin-bottom:1px;}
-.cc-val{font-size:18px;font-weight:700;color:#f1f5f9;line-height:1.1;}
-.cc-sub{font-size:9px;color:#64748b;margin-top:2px;}
-.cmp-sep{width:1px;background:rgba(255,255,255,.08);height:32px;flex-shrink:0;align-self:center;}
-.row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:10px 0 6px 0;}
+.cc-tag{font-size:10px;font-weight:700;margin-bottom:2px;}
+.cc-val{font-size:21px;font-weight:700;color:#f1f5f9;line-height:1.15;}
+.cc-arrow{font-size:11px;font-weight:700;color:#10b981;margin-left:4px;vertical-align:middle;}
+.cc-sub{font-size:9px;color:#64748b;margin-top:3px;}
+.cmp-sep{width:1px;background:rgba(255,255,255,.10);min-height:40px;flex-shrink:0;margin-top:18px;}
+
+/* ── Misc ────────────────────────────────────────────────────────────── */
+.row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:8px 0 6px 0;}
 .streamlit-expanderHeader{color:#ffffff!important;}
 .filter-panel{
   background:linear-gradient(168deg,rgba(30,39,56,.92) 0%,rgba(22,28,40,.97) 100%);
@@ -78,26 +86,24 @@ COLOR_SUCCESS     = "#c8c8c8"
 COLOR_PROGRESSIVE = "#2F80ED"
 COLOR_FAIL        = "#E07070"
 ALPHA_SUCCESS     = 0.07
-
-COLOR_LBP_WON  = "#F59E0B"
-COLOR_LBP_LOST = "#E07070"
-COLOR_BPP      = "#8B5CF6"
+COLOR_LBP_WON     = "#F59E0B"
+COLOR_LBP_LOST    = "#E07070"
+COLOR_BPP         = "#8B5CF6"
 
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a","#f97316","#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 
-CMAP_DENSITY = LinearSegmentedColormap.from_list(
-    "density",
-    ["#0f172a","#1e1b4b","#312e81","#1d4ed8","#0ea5e9",
-     "#2dd4bf","#ca8a04","#f97316","#fcd34d","#fef08a"]
-)
+# Row accent colours (must match row-label CSS classes)
+C_BLUE  = "#2F80ED"
+C_GREEN = "#10b981"
+C_AMBER = "#f59e0b"
+
+NYC_COLOR = "#f87171"
+SAC_COLOR = "#60a5fa"
 
 MATCH_SAC = "Vs Sacramento United (25/04/2026)"
 MATCH_NYC = "Vs New York City FC (25/11/2025)"
 POSITION_BY_MATCH = {MATCH_SAC: "LCB", MATCH_NYC: "LCB"}
-
-NYC_COLOR = "#f87171"
-SAC_COLOR = "#60a5fa"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # xT grid
@@ -114,22 +120,21 @@ def compute_xt_grid(NX=16, NY=12, sub=24,
     FUNNEL_INFLUENCE_RANGE=35.0, FUNNEL_POWER=1.3, BASE_BOOST_WEIGHT=0.15,
     band_width_m=180.0, blur_window_m=60.0, final_blur_m=12.0,
     ANGLE_WEIGHT=0.50, ANGLE_POWER=1.4, BASE_ANGLE_WEIGHT=0.40):
-
     ncols_hr = NX*sub; nrows_hr = NY*sub
     xe = np.linspace(0,FIELD_X,ncols_hr+1); ye = np.linspace(0,FIELD_Y,nrows_hr+1)
-    xc = (xe[:-1]+xe[1:])/2; yc_arr = (ye[:-1]+ye[1:])/2
-    Xc, Yc = np.meshgrid(xc, yc_arr)
-    xp = 0.01+(Xc/FIELD_X)*0.99; yc = 1.0-np.abs((Yc/FIELD_Y)-0.5)*2.0
-    BASE = xp*(0.8+0.2*yc); BASE=(BASE-BASE.min())/(BASE.max()-BASE.min()+1e-12)
-    cy = FIELD_Y/2.0
-    fv = [(FIELD_X,cy-goal_width/2),(FIELD_X-penalty_depth,cy-penalty_width/2),
-          (FIELD_X-penalty_depth,cy+penalty_width/2),(FIELD_X,cy+goal_width/2)]
-    bpts = []
+    xc=(xe[:-1]+xe[1:])/2; yc_arr=(ye[:-1]+ye[1:])/2
+    Xc,Yc = np.meshgrid(xc, yc_arr)
+    xp=0.01+(Xc/FIELD_X)*0.99; yc=1.0-np.abs((Yc/FIELD_Y)-0.5)*2.0
+    BASE=xp*(0.8+0.2*yc); BASE=(BASE-BASE.min())/(BASE.max()-BASE.min()+1e-12)
+    cy=FIELD_Y/2.0
+    fv=[(FIELD_X,cy-goal_width/2),(FIELD_X-penalty_depth,cy-penalty_width/2),
+        (FIELD_X-penalty_depth,cy+penalty_width/2),(FIELD_X,cy+goal_width/2)]
+    bpts=[]
     for i in range(len(fv)):
         a,b=fv[i],fv[(i+1)%len(fv)]; dx,dy=b[0]-a[0],b[1]-a[1]
         n=max(2,int(round(math.hypot(dx,dy)/0.5)))
         for t in np.linspace(0,1,n,endpoint=False): bpts.append((a[0]+dx*t,a[1]+dy*t))
-    bpts = np.array(bpts)
+    bpts=np.array(bpts)
     fX=Xc.ravel(); fY=Yc.ravel(); md2=np.full(fX.size,np.inf)
     for bp in bpts: np.minimum(md2,(fX-bp[0])**2+(fY-bp[1])**2,out=md2)
     adist=np.sqrt(md2).reshape(Xc.shape)
@@ -271,8 +276,8 @@ def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
 
 def progressive_pass(x_start: float, x_end: float) -> bool:
     dist_start = FIELD_X - x_start; dist_end = FIELD_X - x_end
-    closer_by = dist_start - dist_end
-    start_own = x_start < HALF_LINE_X; end_own = x_end < HALF_LINE_X
+    closer_by  = dist_start - dist_end
+    start_own  = x_start < HALF_LINE_X; end_own = x_end < HALF_LINE_X
     if start_own and end_own:  return closer_by >= 30.0
     if start_own != end_own:   return closer_by >= 15.0
     return closer_by >= 10.0
@@ -342,10 +347,10 @@ def compute_stats(df: pd.DataFrame) -> dict:
     high_xt   = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt   = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
     return {
-        "total":      total,
-        "completed":  completed,
-        "incomplete": total - completed,
-        "accuracy":   round(completed / total * 100, 1),
+        "total":          total,
+        "completed":      completed,
+        "incomplete":     total - completed,
+        "accuracy":       round(completed / total * 100, 1),
         "prog_total":     prog_t,
         "prog_completed": prog_c,
         "prog_pct":       round(prog_t / total * 100, 1),
@@ -382,11 +387,29 @@ def small_metric(label: str, value: str, delta: str | None = None):
 # ─────────────────────────────────────────────────────────────────────────────
 # UI helpers
 # ─────────────────────────────────────────────────────────────────────────────
+def _arrow_html(val_nyc: float, val_sac: float) -> tuple[str, str]:
+    """Return (nyc_arrow_html, sac_arrow_html). Arrow shown next to the higher value."""
+    nyc_a = sac_a = ""
+    if val_nyc == val_sac or val_nyc == 0 or val_sac == 0:
+        return nyc_a, sac_a
+    if val_nyc > val_sac:
+        pct = (val_nyc - val_sac) / abs(val_sac) * 100
+        nyc_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+    else:
+        pct = (val_sac - val_nyc) / abs(val_nyc) * 100
+        sac_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+    return nyc_a, sac_a
+
+
 def cmp_box(label: str,
-            val_nyc, val_sac,
+            val_nyc: float, val_sac: float,
+            disp_nyc: str | None = None, disp_sac: str | None = None,
             sub_nyc: str = "", sub_sac: str = "",
-            border: str = "#3b82f6"):
-    """Render a side-by-side comparison card. NYC (left) vs SAC (right)."""
+            border: str = "#3b82f6",
+            show_arrow: bool = True):
+    disp_nyc = disp_nyc if disp_nyc is not None else str(val_nyc)
+    disp_sac = disp_sac if disp_sac is not None else str(val_sac)
+    nyc_a, sac_a = _arrow_html(val_nyc, val_sac) if show_arrow else ("", "")
     sub_nyc_html = f'<div class="cc-sub">{sub_nyc}</div>' if sub_nyc else ""
     sub_sac_html = f'<div class="cc-sub">{sub_sac}</div>' if sub_sac else ""
     html = (
@@ -395,13 +418,13 @@ def cmp_box(label: str,
         f'<div class="cmp-row">'
         f'<div class="cmp-cell">'
         f'<div class="cc-tag" style="color:{NYC_COLOR};">NYC</div>'
-        f'<div class="cc-val">{val_nyc}</div>'
+        f'<div class="cc-val">{disp_nyc}{nyc_a}</div>'
         f'{sub_nyc_html}'
         f'</div>'
         f'<div class="cmp-sep"></div>'
         f'<div class="cmp-cell">'
         f'<div class="cc-tag" style="color:{SAC_COLOR};">SAC</div>'
-        f'<div class="cc-val">{val_sac}</div>'
+        f'<div class="cc-val">{disp_sac}{sac_a}</div>'
         f'{sub_sac_html}'
         f'</div>'
         f'</div>'
@@ -409,16 +432,28 @@ def cmp_box(label: str,
     )
     st.markdown(html, unsafe_allow_html=True)
 
-def sec_hdr(label: str):
-    st.markdown(f'<div class="section-header">{label}</div>', unsafe_allow_html=True)
+
+def sec_hdr(label: str, color: str = "#3b82f6"):
+    """Section header whose left-border + text colour matches the map row label."""
+    st.markdown(
+        f'<div class="sec-hdr" style="border-left:3px solid {color};color:{color};">'
+        f'{label}</div>',
+        unsafe_allow_html=True)
+
 
 def row_divider():
     st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
 
+
 def row_label(text: str, cls: str = "row-label-blue"):
     st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+
+def spacer(px: int = 18):
+    st.markdown(f'<div style="height:{px}px;"></div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────��───────────
 # Draw helpers
 # ─────────────────────────────────────────────────────────────────────────────
 def _base_pitch(bg="#1a1a2e"):
@@ -430,6 +465,7 @@ def _base_pitch(bg="#1a1a2e"):
     ax.axvline(x=HALF_LINE_X,        color="#ffffff", lw=0.7, alpha=0.12, linestyle="--")
     return fig, ax, pitch
 
+
 def _attack_arrow(fig, has_cbar=False):
     ox = -0.04 if has_cbar else 0.0
     fig.patches.append(FancyArrowPatch(
@@ -437,6 +473,7 @@ def _attack_arrow(fig, has_cbar=False):
         arrowstyle="-|>", mutation_scale=11, linewidth=1.6, color="#aaaaaa"))
     fig.text(0.50+ox, 0.012, "Attacking Direction", ha="center", va="bottom",
              transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
+
 
 def _save_fig(fig) -> Image.Image:
     fig.canvas.draw()
@@ -446,13 +483,14 @@ def _save_fig(fig) -> Image.Image:
     buf.seek(0)
     return Image.open(buf)
 
+
 def draw_pass_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         is_won = bool(row["is_won"]); is_prog = bool(row["is_progressive"])
-        if not is_won:   color, alpha = COLOR_FAIL,         0.72
-        elif is_prog:    color, alpha = COLOR_PROGRESSIVE,  0.88
-        else:            color, alpha = COLOR_SUCCESS,       ALPHA_SUCCESS
+        if not is_won:   color, alpha = COLOR_FAIL,        0.72
+        elif is_prog:    color, alpha = COLOR_PROGRESSIVE, 0.88
+        else:            color, alpha = COLOR_SUCCESS,     ALPHA_SUCCESS
         pitch.arrows(row.x_start, row.y_start, row.x_end, row.y_end,
                      color=color, width=1.3, headwidth=2.0, headlength=2.0,
                      ax=ax, zorder=3, alpha=alpha)
@@ -469,6 +507,7 @@ def draw_pass_map(df: pd.DataFrame):
     leg.get_frame().set_alpha(0.90)
     _attack_arrow(fig)
     return _save_fig(fig), fig
+
 
 def draw_corridor_heatmap(df: pd.DataFrame):
     df_s = df[df["is_won"]].copy()
@@ -508,6 +547,7 @@ def draw_corridor_heatmap(df: pd.DataFrame):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
+
 def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     segs = 12; ts = np.linspace(0.0, 1.0, segs+1)
     for i in range(segs):
@@ -522,6 +562,7 @@ def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
                linewidths=1.5, zorder=5, alpha=0.85)
     ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white",
                linewidths=0.9, zorder=6, alpha=0.85)
+
 
 def draw_top10_xt_map(df: pd.DataFrame):
     fig, ax, pitch = _base_pitch()
@@ -544,6 +585,7 @@ def draw_top10_xt_map(df: pd.DataFrame):
     plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
+
 
 def draw_advanced_pass_map(df: pd.DataFrame, title: str):
     fig, ax, pitch = _base_pitch()
@@ -570,34 +612,37 @@ def draw_advanced_pass_map(df: pd.DataFrame, title: str):
     _attack_arrow(fig)
     return _save_fig(fig), ax, fig
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Pre-render images
+# Pre-render images + compute stats
 # ─────────────────────────────────────────────────────────────────────────────
 df_sac = dfs_by_match[MATCH_SAC].copy()
 df_nyc = dfs_by_match[MATCH_NYC].copy()
 
-img_pm_nyc,  fig_pm_nyc  = draw_pass_map(df_nyc);          plt.close(fig_pm_nyc)
-img_pm_sac,  fig_pm_sac  = draw_pass_map(df_sac);          plt.close(fig_pm_sac)
-img_ht_nyc,  fig_ht_nyc  = draw_corridor_heatmap(df_nyc);  plt.close(fig_ht_nyc)
-img_ht_sac,  fig_ht_sac  = draw_corridor_heatmap(df_sac);  plt.close(fig_ht_sac)
-img_xt_nyc,  fig_xt_nyc  = draw_top10_xt_map(df_nyc);      plt.close(fig_xt_nyc)
-img_xt_sac,  fig_xt_sac  = draw_top10_xt_map(df_sac);      plt.close(fig_xt_sac)
+img_pm_nyc, fig_pm_nyc = draw_pass_map(df_nyc);         plt.close(fig_pm_nyc)
+img_pm_sac, fig_pm_sac = draw_pass_map(df_sac);         plt.close(fig_pm_sac)
+img_ht_nyc, fig_ht_nyc = draw_corridor_heatmap(df_nyc); plt.close(fig_ht_nyc)
+img_ht_sac, fig_ht_sac = draw_corridor_heatmap(df_sac); plt.close(fig_ht_sac)
+img_xt_nyc, fig_xt_nyc = draw_top10_xt_map(df_nyc);     plt.close(fig_xt_nyc)
+img_xt_sac, fig_xt_sac = draw_top10_xt_map(df_sac);     plt.close(fig_xt_sac)
 
 s_sac = compute_stats(df_sac)
 s_nyc = compute_stats(df_nyc)
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # TABS
 # ═════════════════════════════════════════════════════════════════════════════
 tab_passmap, tab_advanced = st.tabs(["📋 Pass Map", "🎯 Advanced Passes"])
 
-# ────────────────────────────────────────────────���────────────────────────────
-# TAB 1  —  NYC (left) | SAC (right) | Stats (right)
+
 # ─────────────────────────────────────────────────────────────────────────────
+# TAB 1  —  NYC (left) | SAC (centre) | Stats (right)
+# ─────────────────────────────────────────────────��───────────────────────────
 with tab_passmap:
     col_nyc, col_sac, col_stats = st.columns([1, 1, 1], gap="medium")
 
-    # ── ROW 1: Pass Maps ─────────────────────────────────────────────────────
+    # ════════ ROW 1: Pass Maps ════════════════════════════════════════════════
     with col_nyc:
         row_label("🟦 Pass Map · New York City FC · 25/11/2025", "row-label-blue")
         st.image(img_pm_nyc, use_container_width=True)
@@ -607,29 +652,33 @@ with tab_passmap:
         st.image(img_pm_sac, use_container_width=True)
 
     with col_stats:
-        sec_hdr("📋 Pass Overview")
+        sec_hdr("📋 Pass Overview", C_BLUE)
         cmp_box("Total Passes",
-                s_nyc["total"], s_sac["total"],
-                border="#3b82f6")
+                float(s_nyc["total"]), float(s_sac["total"]),
+                border=C_BLUE)
         cmp_box("Completed",
-                f"{s_nyc['completed']} ({s_nyc['accuracy']:.0f}%)",
-                f"{s_sac['completed']} ({s_sac['accuracy']:.0f}%)",
+                float(s_nyc["completed"]), float(s_sac["completed"]),
+                disp_nyc=f"{s_nyc['completed']} ({s_nyc['accuracy']:.0f}%)",
+                disp_sac=f"{s_sac['completed']} ({s_sac['accuracy']:.0f}%)",
                 sub_nyc=f"{s_nyc['incomplete']} incomplete",
                 sub_sac=f"{s_sac['incomplete']} incomplete",
-                border="#10b981")
+                border=C_BLUE)
         cmp_box("Progressive Passes",
-                f"{s_nyc['prog_total']} ({s_nyc['prog_pct']:.0f}%)",
-                f"{s_sac['prog_total']} ({s_sac['prog_pct']:.0f}%)",
+                float(s_nyc["prog_total"]), float(s_sac["prog_total"]),
+                disp_nyc=f"{s_nyc['prog_total']} ({s_nyc['prog_pct']:.0f}%)",
+                disp_sac=f"{s_sac['prog_total']} ({s_sac['prog_pct']:.0f}%)",
                 sub_nyc=f"{s_nyc['prog_completed']} completed",
                 sub_sac=f"{s_sac['prog_completed']} completed",
-                border="#2F80ED")
+                border=C_BLUE)
+        # spacer fills remaining vertical space to align with map bottom
+        spacer(42)
 
-    # ── Divider ───────────────────────────────────────────────────────────────
+    # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
     with col_sac:   row_divider()
     with col_stats: row_divider()
 
-    # ── ROW 2: Zone Heatmaps ─────────────────────────────────────────────────
+    # ════════ ROW 2: Zone Heatmaps ════════════════════════════════════════════
     with col_nyc:
         row_label("🟩 Zone Heatmap · New York City FC", "row-label-green")
         st.image(img_ht_nyc, use_container_width=True)
@@ -639,26 +688,30 @@ with tab_passmap:
         st.image(img_ht_sac, use_container_width=True)
 
     with col_stats:
-        sec_hdr("🧭 Pass Direction")
+        sec_hdr("🧭 Pass Direction", C_GREEN)
         cmp_box("⬆️ Forward",
-                f"{s_nyc['fwd']} ({s_nyc['fwd_pct']:.0f}%)",
-                f"{s_sac['fwd']} ({s_sac['fwd_pct']:.0f}%)",
-                border="#10b981")
+                s_nyc["fwd_pct"], s_sac["fwd_pct"],
+                disp_nyc=f"{s_nyc['fwd']} ({s_nyc['fwd_pct']:.0f}%)",
+                disp_sac=f"{s_sac['fwd']} ({s_sac['fwd_pct']:.0f}%)",
+                border=C_GREEN)
         cmp_box("⬇️ Backward",
-                f"{s_nyc['bwd']} ({s_nyc['bwd_pct']:.0f}%)",
-                f"{s_sac['bwd']} ({s_sac['bwd_pct']:.0f}%)",
-                border="#f59e0b")
+                s_nyc["bwd_pct"], s_sac["bwd_pct"],
+                disp_nyc=f"{s_nyc['bwd']} ({s_nyc['bwd_pct']:.0f}%)",
+                disp_sac=f"{s_sac['bwd']} ({s_sac['bwd_pct']:.0f}%)",
+                border=C_GREEN)
         cmp_box("↔️ Lateral",
-                f"{s_nyc['lat']} ({s_nyc['lat_pct']:.0f}%)",
-                f"{s_sac['lat']} ({s_sac['lat_pct']:.0f}%)",
-                border="#8b5cf6")
+                s_nyc["lat_pct"], s_sac["lat_pct"],
+                disp_nyc=f"{s_nyc['lat']} ({s_nyc['lat_pct']:.0f}%)",
+                disp_sac=f"{s_sac['lat']} ({s_sac['lat_pct']:.0f}%)",
+                border=C_GREEN)
+        spacer(42)
 
-    # ── Divider ───────────────────────────────────────────────────────────────
+    # ════════ Dividers ════════════════════════════════════════════════════════
     with col_nyc:   row_divider()
     with col_sac:   row_divider()
     with col_stats: row_divider()
 
-    # ── ROW 3: Top-10 xT Maps ────────────────────────────────────────────────
+    # ════════ ROW 3: Top-10 xT Maps ══════════════════════════════════════════
     with col_nyc:
         row_label("🟡 Top 10 ΔxT · New York City FC", "row-label-amber")
         st.image(img_xt_nyc, use_container_width=True)
@@ -668,25 +721,28 @@ with tab_passmap:
         st.image(img_xt_sac, use_container_width=True)
 
     with col_stats:
-        sec_hdr("⚡ xT Analysis")
+        sec_hdr("⚡ xT Analysis", C_AMBER)
         cmp_box("% Positive ΔxT",
-                f"{s_nyc['pos_pct']:.1f}%",
-                f"{s_sac['pos_pct']:.1f}%",
+                s_nyc["pos_pct"], s_sac["pos_pct"],
+                disp_nyc=f"{s_nyc['pos_pct']:.1f}%",
+                disp_sac=f"{s_sac['pos_pct']:.1f}%",
                 sub_nyc="passes that gained xT",
                 sub_sac="passes that gained xT",
-                border="#f59e0b")
+                border=C_AMBER)
         cmp_box("% ΔxT > 0.1",
-                f"{s_nyc['high_xt_pct']:.1f}%",
-                f"{s_sac['high_xt_pct']:.1f}%",
+                s_nyc["high_xt_pct"], s_sac["high_xt_pct"],
+                disp_nyc=f"{s_nyc['high_xt_pct']:.1f}%",
+                disp_sac=f"{s_sac['high_xt_pct']:.1f}%",
                 sub_nyc="high-threat passes",
                 sub_sac="high-threat passes",
-                border="#f97316")
+                border=C_AMBER)
         cmp_box("Σ ΔxT",
-                f"{s_nyc['sum_dxt']:.3f}",
-                f"{s_sac['sum_dxt']:.3f}",
+                s_nyc["sum_dxt"], s_sac["sum_dxt"],
+                disp_nyc=f"{s_nyc['sum_dxt']:.3f}",
+                disp_sac=f"{s_sac['sum_dxt']:.3f}",
                 sub_nyc="total xT generated",
                 sub_sac="total xT generated",
-                border="#b91c1c")
+                border=C_AMBER)
 
     st.caption(
         "Grey = Completed  ·  🔵 Progressive  ·  🔴 Incomplete  ·  "
@@ -695,7 +751,7 @@ with tab_passmap:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 2 — Advanced Passes
+# TAB 2 — Advanced Passes (unchanged)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_advanced:
     st.caption("Line Breaking Passes (🟡 yellow) and Ball Progression Passes (🟣 purple).")
